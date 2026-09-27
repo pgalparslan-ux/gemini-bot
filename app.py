@@ -33,7 +33,7 @@ if prompt := st.chat_input("Bir şeyler yazın..."):
     with st.chat_message("assistant"):
         with st.spinner("Düşünüyor..."):
             try:
-                # Güncel istemci üzerinden yanıt üretme
+                # Ana Model İsteği
                 response = client.models.generate_content(
                     model='gemini-3.8-flash',
                     contents=prompt,
@@ -42,4 +42,17 @@ if prompt := st.chat_input("Bir şeyler yazın..."):
                 st.markdown(bot_response)
                 st.session_state.messages.append({"role": "assistant", "content": bot_response})
             except Exception as e:
-                st.error(f"Hata oluştu: {str(e)}")
+                # 503 Sunucu Yoğunluğu Hatasında Yedek Modele Geçiş
+                if "503" in str(e):
+                    try:
+                        response = client.models.generate_content(
+                            model='gemini-1.5-flash',
+                            contents=prompt,
+                        )
+                        bot_response = response.text
+                        st.markdown(bot_response)
+                        st.session_state.messages.append({"role": "assistant", "content": bot_response})
+                    except Exception as fallback_error:
+                        st.error("Sunucular şu an çok yoğun, lütfen birkaç saniye sonra tekrar deneyin.")
+                else:
+                    st.error(f"Hata oluştu: {str(e)}")
