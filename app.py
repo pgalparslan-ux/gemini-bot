@@ -6,57 +6,55 @@ from google.genai import types
 # Sayfa Yapılandırması
 st.set_page_config(
     page_title="VorpH AI",
-    page_icon="⚡",
+    page_icon="✨",
     layout="centered",
     initial_sidebar_state="expanded"
 )
 
-# --- ÖZEL ARAYÜZ / SOHBET BALONLARI VE TEMA KODLARI (CSS) ---
+# --- GEMINI TEMASI (CSS) ---
 st.markdown("""
 <style>
-    /* Arka Plan Rengi ve Fontlar */
     .stApp {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        color: #f8fafc;
+        background-color: #131314 !important;
+        color: #e3e3e3 !important;
     }
-    
-    /* Üst Başlık Stilizasyonu */
     h1 {
-        color: #38bdf8 !important;
-        font-weight: 700;
+        color: #e3e3e3 !important;
+        font-weight: 500 !important;
         letter-spacing: -0.5px;
     }
-
-    /* Sohbet Balonları Tasarımı */
-    [data-testid="stChatMessage"] {
-        border-radius: 18px;
-        padding: 12px 18px;
-        margin-bottom: 12px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-    }
-
-    /* Kullanıcı Sohbet Balonu */
-    [data-testid="stChatMessage"]:nth-child(even) {
-        background-color: #1e3a8a;
-        border: 1px solid #3b82f6;
-    }
-
-    /* Asistan Sohbet Balonu */
-    [data-testid="stChatMessage"]:nth-child(odd) {
-        background-color: #334155;
-        border: 1px solid #475569;
-    }
-
-    /* Sol Menü (Sidebar) Stilizasyonu */
     section[data-testid="stSidebar"] {
-        background-color: #090d16;
-        border-right: 1px solid #1e293b;
+        background-color: #1e1f20 !important;
+        border-right: 1px solid #282a2c !important;
     }
-
-    /* Input Giriş Kutusu */
+    [data-testid="stChatMessage"] {
+        padding: 14px 18px !important;
+        margin-bottom: 12px !important;
+        border: none !important;
+    }
+    [data-testid="stChatMessage"]:nth-child(even) {
+        background-color: #282a2c !important;
+        color: #e3e3e3 !important;
+        border-radius: 20px 20px 4px 20px !important;
+    }
+    [data-testid="stChatMessage"]:nth-child(odd) {
+        background-color: #1e1f20 !important;
+        color: #e3e3e3 !important;
+        border-radius: 20px 20px 20px 4px !important;
+    }
     .stChatInputContainer {
-        border-radius: 15px;
-        border: 1px solid #38bdf8 !important;
+        background-color: #1e1f20 !important;
+        border-radius: 28px !important;
+        border: 1px solid #3c4043 !important;
+    }
+    .stChatInputContainer:focus-within {
+        border-color: #a8c7fa !important;
+    }
+    .stAlert {
+        background-color: #1e1f20 !important;
+        border: 1px solid #3c4043 !important;
+        color: #e3e3e3 !important;
+        border-radius: 16px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -76,17 +74,27 @@ with st.sidebar:
     st.title("⚙️ Kontrol Paneli")
     st.markdown("---")
     
+    # Kullanıcı İsmi Girişi
+    user_name = st.text_input("👤 İsminiz:", value=st.session_state.get("user_name", ""), placeholder="Adınızı giriniz...")
+    if user_name:
+        st.session_state.user_name = user_name
+
+    st.markdown("---")
+    
     # Asistan Modu Seçimi
     personality = st.selectbox(
         "🎯 Asistan Modu:",
         ["Genel Asistan", "Yazılım & Kodlama Uzmanı", "Kısa ve Öz Cevaplar", "Resmi & Profesyonel"]
     )
     
+    # İsme Göre Dinamik Sistem Talimatı
+    name_prompt = f" Kullanıcının adı '{user_name}'. Yanıtlarında kullanıcıya ismiyle ('{user_name}') samimi ve doğal bir şekilde hitap et." if user_name else ""
+    
     instructions = {
-        "Genel Asistan": "Sen her zaman Türkçe cevap veren, samimi, arkadaş canlısı ve son derece yardımsever VorpH isimli yapay zeka asistanısın.",
-        "Yazılım & Kodlama Uzmanı": "Sen VorpH'sın. Kıdemli bir yazılım geliştiricisisin. Türkçe, açık, temiz kod örnekleri ve teknik açıklamalar içeren yanıtlar ver.",
-        "Kısa ve Öz Cevaplar": "Sen VorpH'sın. Cevapların her zaman Türkçe, kısa, maddeler halinde ve net olsun.",
-        "Resmi & Profesyonel": "Sen VorpH'sın. Kurumsal ve son derece saygılı bir Türkçe yapay zeka asistanısın. Profesyonel bir dil kullan."
+        "Genel Asistan": f"Sen her zaman Türkçe cevap veren, samimi, arkadaş canlısı ve son derece yardımsever VorpH isimli yapay zeka asistanısın.{name_prompt}",
+        "Yazılım & Kodlama Uzmanı": f"Sen VorpH'sın. Kıdemli bir yazılım geliştiricisisin. Türkçe, açık, temiz kod örnekleri ve teknik açıklamalar içeren yanıtlar ver.{name_prompt}",
+        "Kısa ve Öz Cevaplar": f"Sen VorpH'sın. Cevapların her zaman Türkçe, kısa, maddeler halinde ve net olsun.{name_prompt}",
+        "Resmi & Profesyonel": f"Sen VorpH'sın. Kurumsal ve son derece saygılı bir Türkçe yapay zeka asistanısın. Profesyonel bir dil kullan.{name_prompt}"
     }
     
     system_instruction = instructions[personality]
@@ -103,7 +111,7 @@ with st.sidebar:
     st.caption("👨‍💻 Geliştirici: **Anonim**")
 
 # --- ANA SAYFA ---
-st.title("⚡ VorpH")
+st.title("✨ VorpH")
 st.caption("Gelişmiş Yapay Zeka Asistanı")
 
 config = types.GenerateContentConfig(
@@ -116,11 +124,12 @@ if "messages" not in st.session_state:
 
 # Karşılama Kartı
 if len(st.session_state.messages) == 0:
-    st.info("👋 Merhaba! Ben **VorpH**. Nasıl yardımcı olabilirim?")
+    welcome_text = f"👋 Merhaba **{user_name}**! Ben **VorpH**. Bugün sana nasıl yardımcı olabilirim?" if user_name else "👋 Merhaba! Ben **VorpH**. Lütfen sol menüden isminizi girin veya doğrudan soru sormaya başlayın."
+    st.info(welcome_text)
 
-# Geçmiş Mesajları Balon Şeklinde Çizdirme
+# Geçmiş Mesajları Çizdirme
 for message in st.session_state.messages:
-    avatar = "👤" if message["role"] == "user" else "🤖"
+    avatar = "👤" if message["role"] == "user" else "✨"
     with st.chat_message(message["role"], avatar=avatar):
         st.markdown(message["content"])
 
@@ -130,7 +139,7 @@ if prompt := st.chat_input("VorpH'a bir şeyler sorun..."):
     with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
 
-    with st.chat_message("assistant", avatar="🤖"):
+    with st.chat_message("assistant", avatar="✨"):
         with st.spinner("VorpH yanıtlıyor..."):
             bot_response = None
             max_retries = 3
@@ -145,10 +154,17 @@ if prompt := st.chat_input("VorpH'a bir şeyler sorun..."):
                     bot_response = response.text
                     break
                 except Exception as e:
-                    if "503" in str(e) and attempt < max_retries - 1:
-                        time.sleep(1.5)
+                    err_str = str(e)
+                    # Hem 503 (Yoğunluk) hem 429 (Kota/Rate limit) durumlarında otomatik tekrar dene
+                    if any(code in err_str for code in ["503", "429", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]) and attempt < max_retries - 1:
+                        time.sleep(2)  # 2 saniye bekle
                     else:
-                        st.error("Sunucular şu an aşırı yoğun, lütfen birkaç saniye sonra tekrar deneyin.")
+                        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                            st.error("⚠️ Dakikalık kullanım kotası doldu. Lütfen 30 saniye bekleyip tekrar deneyin.")
+                        elif "503" in err_str or "UNAVAILABLE" in err_str:
+                            st.error("⚠️ Sunucular anlık olarak yoğun. Lütfen birkaç saniye sonra tekrar deneyin.")
+                        else:
+                            st.error(f"Baglanti Hatasi: {err_str}")
                         break
 
             if bot_response:
