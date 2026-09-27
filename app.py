@@ -79,18 +79,18 @@ st.markdown("""
 # API Anahtarı
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 
-# --- GİZLİ VE 6X HIZINDA TÜRKÇE SES OYNATICI ---
-def play_audio_6x(text):
+# --- GİZLİ VE TÜRKÇE SES OYNATICI (15X HIZLI) ---
+def play_audio_15x(text):
     try:
         tts = gTTS(text=text, lang='tr')
         fp = io.BytesIO()
         tts.write_to_fp(fp)
         fp.seek(0)
         
-        # Sesi base64 formatına dönüştürerek gizli HTML etiketi ile 6x hızında çalıştırır
+        # Sesi base64 formatına dönüştürerek gizli HTML etiketi ile 15x hızında çalıştırır
         b64_audio = base64.b64encode(fp.read()).decode()
         audio_html = f"""
-            <audio autoplay style="display:none;" onplay="this.playbackRate = 6.0;">
+            <audio autoplay style="display:none;" onplay="this.playbackRate = 15.0;">
                 <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
             </audio>
         """
@@ -109,7 +109,7 @@ with st.sidebar:
 
     st.markdown("---")
     
-    enable_audio = st.toggle("🔊 Sesli Yanıt (6x Hızlı)", value=True)
+    enable_audio = st.toggle("🔊 Sesli Yanıt", value=True)
     
     st.markdown("---")
     
@@ -139,7 +139,7 @@ client = OpenAI(
 
 # --- ANA SAYFA ---
 st.title("VorpH AI")
-st.caption("Sesli Yapay Zeka Asistanı")
+st.caption("Yapay Zeka Asistanı")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -182,9 +182,9 @@ if prompt:
                 bot_response = get_ai_response(api_messages)
                 st.markdown(bot_response)
                 
-                # Ses çubuğunu gizleyip 6x hızında arka planda oynatma
+                # Ses çubuğunu gizleyip 15x hızında arka planda oynatma
                 if enable_audio:
-                    play_audio_6x(bot_response)
+                    play_audio_15x(bot_response)
 
                 st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
