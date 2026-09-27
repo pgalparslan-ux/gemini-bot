@@ -1,4 +1,5 @@
 import io
+import base64
 import streamlit as st
 from openai import OpenAI
 from gtts import gTTS
@@ -43,6 +44,14 @@ st.markdown("""
         border-radius: 12px !important;
         border: 1px solid #181818 !important;
     }
+
+    /* Profil İkonlarındaki Renkleri Siyah-Gri Yapma */
+    [data-testid="stChatMessageAvatar"] {
+        background-color: #1a1a1a !important;
+        filter: grayscale(100%) brightness(0.8) !important;
+        border-radius: 50% !important;
+    }
+
     .stChatInputContainer {
         background-color: #0a0a0a !important;
         border-radius: 16px !important;
@@ -70,16 +79,24 @@ st.markdown("""
 # API Anahtarı
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 
-# --- TÜRKÇE SES OLUŞTURUCU ---
-def speak_text(text):
+# --- GİZLİ VE 2X HIZINDA TÜRKÇE SES OYNATICI ---
+def play_audio_2x(text):
     try:
         tts = gTTS(text=text, lang='tr')
         fp = io.BytesIO()
         tts.write_to_fp(fp)
         fp.seek(0)
-        return fp
+        
+        # Sesi base64 formatına dönüştürerek gizli HTML etiketi ile 2x hızında çalıştırır
+        b64_audio = base64.b64encode(fp.read()).decode()
+        audio_html = f"""
+            <audio autoplay style="display:none;" onplay="this.playbackRate = 2.0;">
+                <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
+            </audio>
+        """
+        st.markdown(audio_html, unsafe_allow_html=True)
     except Exception:
-        return None
+        pass
 
 # --- SOL MENÜ (SIDEBAR) ---
 with st.sidebar:
@@ -92,7 +109,7 @@ with st.sidebar:
 
     st.markdown("---")
     
-    enable_audio = st.toggle("🔊 Sesli Yanıt (VorpH Konuşsun)", value=True)
+    enable_audio = st.toggle("🔊 Sesli Yanıt (2x Hızlı)", value=True)
     
     st.markdown("---")
     
@@ -165,10 +182,9 @@ if prompt:
                 bot_response = get_ai_response(api_messages)
                 st.markdown(bot_response)
                 
+                # Ses çubuğunu gizleyip 2x hızında arka planda oynatma
                 if enable_audio:
-                    audio_fp = speak_text(bot_response)
-                    if audio_fp:
-                        st.audio(audio_fp, format='audio/mp3', autoplay=True)
+                    play_audio_2x(bot_response)
 
                 st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
