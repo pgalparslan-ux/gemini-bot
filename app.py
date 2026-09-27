@@ -80,28 +80,45 @@ st.markdown("""
 # API Anahtarı
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 
-# --- GİZLİ VE HIZLANDIRILMIŞ SES OYNATICI (TARAYICI DOKUMANLARINA UYGUN MAX HIZ: 4X) ---
-def play_audio_fast(text, speed=4.0):
+# --- WEB AUDIO API İLE SINIRSIZ HIZDA SES OYNATICI (15X) ---
+def play_audio_unlimited_speed(text, speed=15.0):
     try:
         tts = gTTS(text=text, lang='tr')
         fp = io.BytesIO()
         tts.write_to_fp(fp)
         fp.seek(0)
         
-        # Benzersiz ID ile her yanıtta JS'in kesin çalışmasını sağlıyoruz
-        audio_id = f"audio_{int(time.time() * 1000)}"
         b64_audio = base64.b64encode(fp.read()).decode()
         
+        # Web Audio API ile tarayıcı hız limitlerini aşma
         audio_html = f"""
-            <audio id="{audio_id}" autoplay style="display:none;">
-                <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
-            </audio>
             <script>
                 (function() {{
-                    var audio = document.getElementById("{audio_id}");
-                    if (audio) {{
-                        audio.playbackRate = {speed};
-                        audio.play().catch(function(e) {{ console.log(e); }});
+                    try {{
+                        var b64 = "{b64_audio}";
+                        var binary = atob(b64);
+                        var len = binary.length;
+                        var bytes = new Uint8Array(len);
+                        for (var i = 0; i < len; i++) {{
+                            bytes[i] = binary.charCodeAt(i);
+                        }}
+                        
+                        var AudioContext = window.AudioContext || window.webkitAudioContext;
+                        var ctx = new AudioContext();
+                        
+                        if (ctx.state === 'suspended') {{
+                            ctx.resume();
+                        }}
+                        
+                        ctx.decodeAudioData(bytes.buffer, function(buffer) {{
+                            var source = ctx.createBufferSource();
+                            source.buffer = buffer;
+                            source.playbackRate.value = {speed}; // 15x Hız
+                            source.connect(ctx.destination);
+                            source.start(0);
+                        }});
+                    }} catch (e) {{
+                        console.error("Audio Playback Error:", e);
                     }}
                 }})();
             </script>
@@ -194,9 +211,9 @@ if prompt:
                 bot_response = get_ai_response(api_messages)
                 st.markdown(bot_response)
                 
-                # Sesi hızlı oynatma (4x hızında)
+                # Sesi Web Audio API üzerinden tam 15x hızında çalma
                 if enable_audio:
-                    play_audio_fast(bot_response, speed=4.0)
+                    play_audio_unlimited_speed(bot_response, speed=15.0)
 
                 st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
