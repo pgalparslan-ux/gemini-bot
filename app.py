@@ -10,70 +10,97 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- GEMINI / VORPH KOYU TEMA (CSS) ---
+# --- SAF OLED SİYAH / TAM ZİFİRİ TEMA (#000000) ---
 st.markdown("""
 <style>
+    /* Tam Zifiri OLED Siyah Arka Plan */
     .stApp {
-        background-color: #131314 !important;
-        color: #e3e3e3 !important;
+        background-color: #000000 !important;
+        color: #e0e0e0 !important;
     }
+    
+    /* Başlıklar */
     h1 {
-        color: #e3e3e3 !important;
-        font-weight: 500 !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
         letter-spacing: -0.5px;
     }
+    
+    /* Sol Menü (Sidebar) */
     section[data-testid="stSidebar"] {
-        background-color: #1e1f20 !important;
-        border-right: 1px solid #282a2c !important;
+        background-color: #080808 !important;
+        border-right: 1px solid #181818 !important;
     }
+    
+    /* Sohbet Mesaj Kapsayıcıları */
     [data-testid="stChatMessage"] {
         padding: 14px 18px !important;
         margin-bottom: 12px !important;
         border: none !important;
     }
+    
+    /* Kullanıcı Sohbet Balonu */
     [data-testid="stChatMessage"]:nth-child(even) {
-        background-color: #282a2c !important;
-        color: #e3e3e3 !important;
-        border-radius: 20px 20px 4px 20px !important;
+        background-color: #121212 !important;
+        color: #f0f0f0 !important;
+        border-radius: 18px 18px 4px 18px !important;
+        border: 1px solid #222222 !important;
     }
+    
+    /* VorpH Asistan Mesaj Balonu */
     [data-testid="stChatMessage"]:nth-child(odd) {
-        background-color: #1e1f20 !important;
-        color: #e3e3e3 !important;
-        border-radius: 20px 20px 20px 4px !important;
+        background-color: #0a0a0a !important;
+        color: #e0e0e0 !important;
+        border-radius: 18px 18px 18px 4px !important;
+        border: 1px solid #1a1a1a !important;
     }
+    
+    /* Giriş Kutusu (Input Box) */
     .stChatInputContainer {
-        background-color: #1e1f20 !important;
+        background-color: #0a0a0a !important;
         border-radius: 28px !important;
-        border: 1px solid #3c4043 !important;
+        border: 1px solid #222222 !important;
     }
+    
     .stChatInputContainer:focus-within {
-        border-color: #a8c7fa !important;
+        border-color: #3b82f6 !important;
     }
+    
+    /* Bilgi ve Uyarı Kartları */
     .stAlert {
-        background-color: #1e1f20 !important;
-        border: 1px solid #3c4043 !important;
-        color: #e3e3e3 !important;
+        background-color: #0a0a0a !important;
+        border: 1px solid #222222 !important;
+        color: #e0e0e0 !important;
         border-radius: 16px !important;
+    }
+
+    /* Form Elemanları ve Kutular */
+    div[data-baseweb="input"] {
+        background-color: #000000 !important;
+        border-color: #222222 !important;
+        color: #ffffff !important;
+    }
+    
+    div[data-baseweb="select"] {
+        background-color: #000000 !important;
+        border-color: #222222 !important;
+        color: #ffffff !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# API Anahtarını Alma
-default_api_key = st.secrets.get("OPENROUTER_API_KEY", "")
+# Streamlit Secrets üzerinden API Anahtarını alma
+api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 
 # --- YAN MENÜ (SIDEBAR) AYARLARI ---
 with st.sidebar:
     st.title("⚙️ Kontrol Paneli")
     st.markdown("---")
     
-    # Kullanıcı İsmi
+    # Kullanıcı İsmi Girişi
     user_name = st.text_input("👤 İsminiz:", value=st.session_state.get("user_name", ""), placeholder="Adınızı giriniz...")
     if user_name:
         st.session_state.user_name = user_name
-
-    # Özel OpenRouter Key (Opsiyonel)
-    custom_api_key = st.text_input("🔑 Özel API Key (Opsiyonel):", type="password", placeholder="OpenRouter sk-or-... key")
-    active_api_key = custom_api_key if custom_api_key else default_api_key
 
     st.markdown("---")
 
@@ -117,14 +144,14 @@ with st.sidebar:
     st.caption("👨‍💻 Geliştirici: **Anonim**")
 
 # API Anahtarı Kontrolü
-if not active_api_key:
-    st.error("API Anahtarı bulunamadı! Lütfen Streamlit Secrets veya sol menü üzerinden OpenRouter API anahtarınızı girin.")
+if not api_key:
+    st.error("API Anahtarı bulunamadı! Lütfen Streamlit Secrets (OPENROUTER_API_KEY) ayarlarını kontrol edin.")
     st.stop()
 
-# OpenRouter Uyumlu OpenAI İstemcisini Başlat
+# OpenRouter İstemcisi
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
-    api_key=active_api_key,
+    api_key=api_key,
     default_headers={
         "HTTP-Referer": "https://streamlit.io",
         "X-Title": "VorpH AI"
@@ -133,7 +160,7 @@ client = OpenAI(
 
 # --- ANA SAYFA ---
 st.title("✨ VorpH")
-st.caption("OpenRouter Gücüyle Çalışan Yapay Zeka Asistanı")
+st.caption("Gelişmiş Yapay Zeka Asistanı")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -157,7 +184,6 @@ if prompt := st.chat_input("VorpH'a bir şeyler sorun..."):
     with st.chat_message("assistant", avatar="✨"):
         with st.spinner("VorpH yanıtlıyor..."):
             try:
-                # OpenRouter Mesaj Geçmişi Yapılandırması
                 api_messages = [{"role": "system", "content": system_instruction}]
                 for m in st.session_state.messages:
                     api_messages.append({"role": m["role"], "content": m["content"]})
