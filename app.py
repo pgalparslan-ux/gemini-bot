@@ -1,7 +1,6 @@
 import streamlit as st
 import time
-from google import genai
-from google.genai import types
+from openai import OpenAI
 
 # Sayfa Yapılandırması
 st.set_page_config(
@@ -11,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- GEMINI TEMASI (CSS) ---
+# --- GEMINI / VORPH KOYU TEMA (CSS) ---
 st.markdown("""
 <style>
     .stApp {
@@ -60,24 +59,33 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # API Anahtarını Alma
-try:
-    api_key = st.secrets["GEMINI_API_KEY"]
-except Exception:
-    st.error("API Anahtarı Streamlit Secrets içinde bulunamadı!")
-    st.stop()
-
-# İstemciyi Başlat
-client = genai.Client(api_key=api_key)
+default_api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 
 # --- YAN MENÜ (SIDEBAR) AYARLARI ---
 with st.sidebar:
     st.title("⚙️ Kontrol Paneli")
     st.markdown("---")
     
-    # Kullanıcı İsmi Girişi
+    # Kullanıcı İsmi
     user_name = st.text_input("👤 İsminiz:", value=st.session_state.get("user_name", ""), placeholder="Adınızı giriniz...")
     if user_name:
         st.session_state.user_name = user_name
+
+    # Özel OpenRouter Key (Opsiyonel)
+    custom_api_key = st.text_input("🔑 Özel API Key (Opsiyonel):", type="password", placeholder="OpenRouter sk-or-... key")
+    active_api_key = custom_api_key if custom_api_key else default_api_key
+
+    st.markdown("---")
+
+    # Ücretsiz Model Seçici
+    model_choice = st.selectbox(
+        "🤖 Model Seçimi (Ücretsiz):",
+        [
+            "meta-llama/llama-3.3-70b-instruct:free",
+            "deepseek/deepseek-r1:free",
+            "google/gemini-2.0-flash-exp:free"
+        ]
+    )
 
     st.markdown("---")
     
@@ -87,7 +95,6 @@ with st.sidebar:
         ["Genel Asistan", "Yazılım & Kodlama Uzmanı", "Kısa ve Öz Cevaplar", "Resmi & Profesyonel"]
     )
     
-    # İsme Göre Dinamik Sistem Talimatı
     name_prompt = f" Kullanıcının adı '{user_name}'. Yanıtlarında kullanıcıya ismiyle ('{user_name}') samimi ve doğal bir şekilde hitap et." if user_name else ""
     
     instructions = {
@@ -101,28 +108,36 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Sohbet Temizleme Butonu
     if st.button("🗑️ Sohbeti Sıfırla", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
         
     st.markdown("---")
-    st.caption("🚀 Model: **gemini-3.8-flash**")
+    st.caption("🚀 Altyapı: **OpenRouter API**")
     st.caption("👨‍💻 Geliştirici: **Anonim**")
+
+# API Anahtarı Kontrolü
+if not active_api_key:
+    st.error("API Anahtarı bulunamadı! Lütfen Streamlit Secrets veya sol menü üzerinden OpenRouter API anahtarınızı girin.")
+    st.stop()
+
+# OpenRouter Uyumlu OpenAI İstemcisini Başlat
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=active_api_key,
+    default_headers={
+        "HTTP-Referer": "https://streamlit.io",
+        "X-Title": "VorpH AI"
+    }
+)
 
 # --- ANA SAYFA ---
 st.title("✨ VorpH")
-st.caption("Gelişmiş Yapay Zeka Asistanı")
+st.caption("OpenRouter Gücüyle Çalışan Yapay Zeka Asistanı")
 
-config = types.GenerateContentConfig(
-    system_instruction=system_instruction
-)
-
-# Sohbet Geçmişi
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Karşılama Kartı
 if len(st.session_state.messages) == 0:
     welcome_text = f"👋 Merhaba **{user_name}**! Ben **VorpH**. Bugün sana nasıl yardımcı olabilirim?" if user_name else "👋 Merhaba! Ben **VorpH**. Lütfen sol menüden isminizi girin veya doğrudan soru sormaya başlayın."
     st.info(welcome_text)
@@ -141,32 +156,20 @@ if prompt := st.chat_input("VorpH'a bir şeyler sorun..."):
 
     with st.chat_message("assistant", avatar="✨"):
         with st.spinner("VorpH yanıtlıyor..."):
-            bot_response = None
-            max_retries = 3
-            
-            for attempt in range(max_retries):
-                try:
-                    response = client.models.generate_content(
-                        model='gemini-3.8-flash',
-                        contents=prompt,
-                        config=config
-                    )
-                    bot_response = response.text
-                    break
-                except Exception as e:
-                    err_str = str(e)
-                    # Hem 503 (Yoğunluk) hem 429 (Kota/Rate limit) durumlarında otomatik tekrar dene
-                    if any(code in err_str for code in ["503", "429", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]) and attempt < max_retries - 1:
-                        time.sleep(2)  # 2 saniye bekle
-                    else:
-                        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                            st.error("⚠️ Dakikalık kullanım kotası doldu. Lütfen 30 saniye bekleyip tekrar deneyin.")
-                        elif "503" in err_str or "UNAVAILABLE" in err_str:
-                            st.error("⚠️ Sunucular anlık olarak yoğun. Lütfen birkaç saniye sonra tekrar deneyin.")
-                        else:
-                            st.error(f"Baglanti Hatasi: {err_str}")
-                        break
+            try:
+                # OpenRouter Mesaj Geçmişi Yapılandırması
+                api_messages = [{"role": "system", "content": system_instruction}]
+                for m in st.session_state.messages:
+                    api_messages.append({"role": m["role"], "content": m["content"]})
 
-            if bot_response:
+                completion = client.chat.completions.create(
+                    model=model_choice,
+                    messages=api_messages
+                )
+                
+                bot_response = completion.choices[0].message.content
                 st.markdown(bot_response)
                 st.session_state.messages.append({"role": "assistant", "content": bot_response})
+
+            except Exception as e:
+                st.error(f"Baglanti Hatasi: {str(e)}")
