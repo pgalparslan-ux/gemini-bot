@@ -1,5 +1,6 @@
 import streamlit as st
 from google import genai
+from google.genai import types
 
 # Sayfa Yapılandırması
 st.set_page_config(page_title="Gemini AI Asistanı", page_icon="🤖")
@@ -14,6 +15,11 @@ except Exception:
 
 # Yeni resmi Google GenAI istemcisini başlat
 client = genai.Client(api_key=api_key)
+
+# Türkçe yanıt verme zorunluluğu için sistem talimatı
+config = types.GenerateContentConfig(
+    system_instruction="Sen her zaman Türkçe cevap veren yardımsever ve arkadaş canlısı bir yapay zeka asistanısın."
+)
 
 # Geçmiş mesajları hafızada tutma
 if "messages" not in st.session_state:
@@ -32,27 +38,28 @@ if prompt := st.chat_input("Bir şeyler yazın..."):
 
     with st.chat_message("assistant"):
         with st.spinner("Düşünüyor..."):
+            bot_response = None
+            
+            # Ana Model Denemesi
             try:
-                # Ana Model İsteği
                 response = client.models.generate_content(
                     model='gemini-3.8-flash',
                     contents=prompt,
+                    config=config
                 )
                 bot_response = response.text
+            except Exception:
+                # 503 veya sunucu hatası durumunda sessizce yedek modele geçiş
+                try:
+                    response = client.models.generate_content(
+                        model='gemini-1.5-flash',
+                        contents=prompt,
+                        config=config
+                    )
+                    bot_response = response.text
+                except Exception as e:
+                    st.error("Sunucular şu an çok yoğun, lütfen birkaç saniye sonra tekrar deneyin.")
+
+            if bot_response:
                 st.markdown(bot_response)
                 st.session_state.messages.append({"role": "assistant", "content": bot_response})
-            except Exception as e:
-                # 503 Sunucu Yoğunluğu Hatasında Yedek Modele Geçiş
-                if "503" in str(e):
-                    try:
-                        response = client.models.generate_content(
-                            model='gemini-1.5-flash',
-                            contents=prompt,
-                        )
-                        bot_response = response.text
-                        st.markdown(bot_response)
-                        st.session_state.messages.append({"role": "assistant", "content": bot_response})
-                    except Exception as fallback_error:
-                        st.error("Sunucular şu an çok yoğun, lütfen birkaç saniye sonra tekrar deneyin.")
-                else:
-                    st.error(f"Hata oluştu: {str(e)}")
