@@ -104,13 +104,14 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Ücretsiz Model Seçici
+    # Ücretsiz Güncel Model Seçici
     model_choice = st.selectbox(
         "🤖 Model Seçimi (Ücretsiz):",
         [
-            "meta-llama/llama-3.3-70b-instruct:free",
             "deepseek/deepseek-r1:free",
-            "google/gemini-2.0-flash-exp:free"
+            "google/gemini-2.0-flash-exp:free",
+            "meta-llama/llama-3.1-8b-instruct:free",
+            "qwen/qwen-2.5-coder-32b-instruct:free"
         ]
     )
 
