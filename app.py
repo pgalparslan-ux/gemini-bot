@@ -1,15 +1,16 @@
 import streamlit as st
-import requests
+import google.generativeai as genai
 
 # Sayfa Yapılandırması
 st.set_page_config(page_title="Gemini AI Asistanı", page_icon="🤖")
 st.title("🤖 Gemini Yapay Zeka Asistanı")
 
-# API Anahtarın (aistudio.google.com'dan aldığın geçerli anahtar)
-API_KEY = "AQ.Ab8RN6J_6-EymS1_sAHfxNJwqzlsgZmx37ZlidXSHO7aUlux-w"
+# API Anahtarın
+API_KEY = "BURAYA_KENDI_API_ANAHTARINI_YAZ"
 
-# Güncel Gemini 1.5 Flash Endpoint
-URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+# Gemini SDK Yapılandırması
+genai.configure(api_key=API_KEY)
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 # Geçmiş mesajları hafızada tutma
 if "messages" not in st.session_state:
@@ -27,29 +28,13 @@ if prompt := st.chat_input("Bir şeyler yazın..."):
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # API İsteği Hazırlama
-    payload = {
-        "contents": [
-            {
-                "parts": [{"text": prompt}]
-            }
-        ]
-    }
-    
-    headers = {'Content-Type': 'application/json'}
-
     # Yanıt Bekleme
     with st.chat_message("assistant"):
         with st.spinner("Düşünüyor..."):
             try:
-                response = requests.post(URL, json=payload, headers=headers)
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    bot_response = result['candidates'][0]['content']['parts'][0]['text']
-                    st.markdown(bot_response)
-                    st.session_state.messages.append({"role": "assistant", "content": bot_response})
-                else:
-                    st.error(f"Hata oluştu: HTTP Error {response.status_code}\n\nDetay: {response.text}")
+                response = model.generate_content(prompt)
+                bot_response = response.text
+                st.markdown(bot_response)
+                st.session_state.messages.append({"role": "assistant", "content": bot_response})
             except Exception as e:
-                st.error(f"Bağlantı hatası: {str(e)}")
+                st.error(f"Hata oluştu: {str(e)}")
