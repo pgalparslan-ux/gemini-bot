@@ -1,16 +1,14 @@
 import streamlit as st
-import time
 from openai import OpenAI
 
 # Sayfa Yapılandırması
 st.set_page_config(
     page_title="VorpH AI",
-    page_icon="✨",
     layout="centered",
     initial_sidebar_state="expanded"
 )
 
-# --- SAF OLED SİYAH / TAM ZİFİRİ TEMA (#000000) ---
+# --- SAF OLED SİYAH / SIFIR MAVİ / MONOKROM TEMA ---
 st.markdown("""
 <style>
     /* Tam Zifiri OLED Siyah Arka Plan */
@@ -20,7 +18,7 @@ st.markdown("""
     }
     
     /* Başlıklar */
-    h1 {
+    h1, h2, h3 {
         color: #ffffff !important;
         font-weight: 600 !important;
         letter-spacing: -0.5px;
@@ -28,8 +26,8 @@ st.markdown("""
     
     /* Sol Menü (Sidebar) */
     section[data-testid="stSidebar"] {
-        background-color: #080808 !important;
-        border-right: 1px solid #181818 !important;
+        background-color: #050505 !important;
+        border-right: 1px solid #1a1a1a !important;
     }
     
     /* Sohbet Mesaj Kapsayıcıları */
@@ -41,75 +39,89 @@ st.markdown("""
     
     /* Kullanıcı Sohbet Balonu */
     [data-testid="stChatMessage"]:nth-child(even) {
-        background-color: #121212 !important;
-        color: #f0f0f0 !important;
-        border-radius: 18px 18px 4px 18px !important;
+        background-color: #111111 !important;
+        color: #ffffff !important;
+        border-radius: 12px !important;
         border: 1px solid #222222 !important;
     }
     
     /* VorpH Asistan Mesaj Balonu */
     [data-testid="stChatMessage"]:nth-child(odd) {
-        background-color: #0a0a0a !important;
-        color: #e0e0e0 !important;
-        border-radius: 18px 18px 18px 4px !important;
-        border: 1px solid #1a1a1a !important;
+        background-color: #050505 !important;
+        color: #d0d0d0 !important;
+        border-radius: 12px !important;
+        border: 1px solid #181818 !important;
     }
     
     /* Giriş Kutusu (Input Box) */
     .stChatInputContainer {
         background-color: #0a0a0a !important;
-        border-radius: 28px !important;
+        border-radius: 16px !important;
         border: 1px solid #222222 !important;
     }
     
+    /* Mavi Odaklanma Çizgisini Beyaza Çevirme */
     .stChatInputContainer:focus-within {
-        border-color: #3b82f6 !important;
+        border-color: #555555 !important;
     }
     
-    /* Bilgi ve Uyarı Kartları */
-    .stAlert {
+    /* Mavi Bilgi Kartları ve Uyarılar (Mavilik Sıfırlandı) */
+    .stAlert, div[data-baseweb="notification"] {
         background-color: #0a0a0a !important;
         border: 1px solid #222222 !important;
         color: #e0e0e0 !important;
-        border-radius: 16px !important;
+        border-radius: 12px !important;
     }
 
-    /* Form Elemanları ve Kutular */
-    div[data-baseweb="input"] {
-        background-color: #000000 !important;
+    /* Form Elemanları, Selectbox ve Input Kutuları */
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="select"] > div {
+        background-color: #0a0a0a !important;
         border-color: #222222 !important;
         color: #ffffff !important;
     }
+
+    div[data-baseweb="select"]:focus-within, 
+    div[data-baseweb="input"]:focus-within {
+        border-color: #555555 !important;
+    }
+
+    /* Buton Tasarımları */
+    button {
+        background-color: #111111 !important;
+        color: #ffffff !important;
+        border: 1px solid #222222 !important;
+        border-radius: 10px !important;
+    }
     
-    div[data-baseweb="select"] {
-        background-color: #000000 !important;
-        border-color: #222222 !important;
+    button:hover {
+        border-color: #555555 !important;
         color: #ffffff !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Streamlit Secrets üzerinden API Anahtarını alma
+# API Anahtarını alma
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 
 # --- YAN MENÜ (SIDEBAR) AYARLARI ---
 with st.sidebar:
-    st.title("⚙️ Kontrol Paneli")
+    st.title("Kontrol Paneli")
     st.markdown("---")
     
     # Kullanıcı İsmi Girişi
-    user_name = st.text_input("👤 İsminiz:", value=st.session_state.get("user_name", ""), placeholder="Adınızı giriniz...")
+    user_name = st.text_input("İsminiz:", value=st.session_state.get("user_name", ""), placeholder="Adınızı giriniz...")
     if user_name:
         st.session_state.user_name = user_name
 
     st.markdown("---")
 
-    # Ücretsiz Güncel Model Seçici
+    # Sadece Aktif Ücretsiz Modeller
     model_choice = st.selectbox(
-        "🤖 Model Seçimi (Ücretsiz):",
+        "Model Seçimi:",
         [
-            "deepseek/deepseek-r1:free",
             "google/gemini-2.0-flash-exp:free",
+            "deepseek/deepseek-r1:free",
             "meta-llama/llama-3.1-8b-instruct:free",
             "qwen/qwen-2.5-coder-32b-instruct:free"
         ]
@@ -119,34 +131,33 @@ with st.sidebar:
     
     # Asistan Modu Seçimi
     personality = st.selectbox(
-        "🎯 Asistan Modu:",
-        ["Genel Asistan", "Yazılım & Kodlama Uzmanı", "Kısa ve Öz Cevaplar", "Resmi & Profesyonel"]
+        "Asistan Modu:",
+        ["Genel Asistan", "Yazılım Uzmanı", "Kısa ve Öz", "Resmi"]
     )
     
-    name_prompt = f" Kullanıcının adı '{user_name}'. Yanıtlarında kullanıcıya ismiyle ('{user_name}') samimi ve doğal bir şekilde hitap et." if user_name else ""
+    name_prompt = f" Kullanıcının adı '{user_name}'. Yanıtlarında kullanıcıya ismiyle ('{user_name}') hitap et." if user_name else ""
     
     instructions = {
-        "Genel Asistan": f"Sen her zaman Türkçe cevap veren, samimi, arkadaş canlısı ve son derece yardımsever VorpH isimli yapay zeka asistanısın.{name_prompt}",
-        "Yazılım & Kodlama Uzmanı": f"Sen VorpH'sın. Kıdemli bir yazılım geliştiricisisin. Türkçe, açık, temiz kod örnekleri ve teknik açıklamalar içeren yanıtlar ver.{name_prompt}",
-        "Kısa ve Öz Cevaplar": f"Sen VorpH'sın. Cevapların her zaman Türkçe, kısa, maddeler halinde ve net olsun.{name_prompt}",
-        "Resmi & Profesyonel": f"Sen VorpH'sın. Kurumsal ve son derece saygılı bir Türkçe yapay zeka asistanısın. Profesyonel bir dil kullan.{name_prompt}"
+        "Genel Asistan": f"Sen Türkçe cevap veren yardımsever VorpH isimli yapay zeka asistanısın.{name_prompt}",
+        "Yazılım Uzmanı": f"Sen VorpH'sın. Kıdemli bir yazılım geliştiricisisin. Türkçe, açık ve temiz kod örnekleri sun.{name_prompt}",
+        "Kısa ve Öz": f"Sen VorpH'sın. Cevapların her zaman Türkçe, kısa ve net olsun.{name_prompt}",
+        "Resmi": f"Sen VorpH'sın. Kurumsal ve saygılı bir Türkçe yapay zeka asistanısın.{name_prompt}"
     }
     
     system_instruction = instructions[personality]
     
     st.markdown("---")
     
-    if st.button("🗑️ Sohbeti Sıfırla", use_container_width=True):
+    if st.button("Sohbeti Sıfırla", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
         
     st.markdown("---")
-    st.caption("🚀 Altyapı: **OpenRouter API**")
-    st.caption("👨‍💻 Geliştirici: **Anonim**")
+    st.caption("Altyapı: OpenRouter API")
 
 # API Anahtarı Kontrolü
 if not api_key:
-    st.error("API Anahtarı bulunamadı! Lütfen Streamlit Secrets (OPENROUTER_API_KEY) ayarlarını kontrol edin.")
+    st.error("API Anahtarı bulunamadı! Streamlit Secrets ayarlarını kontrol edin.")
     st.stop()
 
 # OpenRouter İstemcisi
@@ -160,30 +171,29 @@ client = OpenAI(
 )
 
 # --- ANA SAYFA ---
-st.title("✨ VorpH")
+st.title("VorpH")
 st.caption("Gelişmiş Yapay Zeka Asistanı")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if len(st.session_state.messages) == 0:
-    welcome_text = f"👋 Merhaba **{user_name}**! Ben **VorpH**. Bugün sana nasıl yardımcı olabilirim?" if user_name else "👋 Merhaba! Ben **VorpH**. Lütfen sol menüden isminizi girin veya doğrudan soru sormaya başlayın."
-    st.info(welcome_text)
+    welcome_text = f"Merhaba **{user_name}**, ben VorpH. Nasıl yardımcı olabilirim?" if user_name else "Merhaba, ben VorpH. Sol menüden isminizi girebilir veya soru sorabilirsiniz."
+    st.markdown(f"<div class='stAlert'>{welcome_text}</div>", unsafe_allow_html=True)
 
 # Geçmiş Mesajları Çizdirme
 for message in st.session_state.messages:
-    avatar = "👤" if message["role"] == "user" else "✨"
-    with st.chat_message(message["role"], avatar=avatar):
+    with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 # Kullanıcı Mesaj Girişi
-if prompt := st.chat_input("VorpH'a bir şeyler sorun..."):
+if prompt := st.chat_input("VorpH'a sorun..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="👤"):
+    with st.chat_message("user"):
         st.markdown(prompt)
 
-    with st.chat_message("assistant", avatar="✨"):
-        with st.spinner("VorpH yanıtlıyor..."):
+    with st.chat_message("assistant"):
+        with st.spinner("Yanıtlanıyor..."):
             try:
                 api_messages = [{"role": "system", "content": system_instruction}]
                 for m in st.session_state.messages:
@@ -199,4 +209,4 @@ if prompt := st.chat_input("VorpH'a bir şeyler sorun..."):
                 st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
             except Exception as e:
-                st.error(f"Baglanti Hatasi: {str(e)}")
+                st.error(f"Hata: {str(e)}")
