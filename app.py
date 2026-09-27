@@ -35,7 +35,7 @@ if prompt := st.chat_input("Bir şeyler yazın..."):
             try:
                 # Güncel istemci üzerinden yanıt üretme
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-3.8-flash',
                     contents=prompt,
                 )
                 bot_response = response.text
