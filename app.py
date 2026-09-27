@@ -1,5 +1,6 @@
 import io
 import base64
+import time
 import streamlit as st
 from openai import OpenAI
 from gtts import gTTS
@@ -79,20 +80,31 @@ st.markdown("""
 # API Anahtarı
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 
-# --- GİZLİ VE TÜRKÇE SES OYNATICI (15X HIZLI) ---
-def play_audio_15x(text):
+# --- GİZLİ VE HIZLANDIRILMIŞ SES OYNATICI (TARAYICI DOKUMANLARINA UYGUN MAX HIZ: 4X) ---
+def play_audio_fast(text, speed=4.0):
     try:
         tts = gTTS(text=text, lang='tr')
         fp = io.BytesIO()
         tts.write_to_fp(fp)
         fp.seek(0)
         
-        # Sesi base64 formatına dönüştürerek gizli HTML etiketi ile 15x hızında çalıştırır
+        # Benzersiz ID ile her yanıtta JS'in kesin çalışmasını sağlıyoruz
+        audio_id = f"audio_{int(time.time() * 1000)}"
         b64_audio = base64.b64encode(fp.read()).decode()
+        
         audio_html = f"""
-            <audio autoplay style="display:none;" onplay="this.playbackRate = 15.0;">
+            <audio id="{audio_id}" autoplay style="display:none;">
                 <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
             </audio>
+            <script>
+                (function() {{
+                    var audio = document.getElementById("{audio_id}");
+                    if (audio) {{
+                        audio.playbackRate = {speed};
+                        audio.play().catch(function(e) {{ console.log(e); }});
+                    }}
+                }})();
+            </script>
         """
         st.markdown(audio_html, unsafe_allow_html=True)
     except Exception:
@@ -182,9 +194,9 @@ if prompt:
                 bot_response = get_ai_response(api_messages)
                 st.markdown(bot_response)
                 
-                # Ses çubuğunu gizleyip 15x hızında arka planda oynatma
+                # Sesi hızlı oynatma (4x hızında)
                 if enable_audio:
-                    play_audio_15x(bot_response)
+                    play_audio_fast(bot_response, speed=4.0)
 
                 st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
