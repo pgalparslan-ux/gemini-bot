@@ -53,14 +53,14 @@ st.markdown("""
         border: 1px solid #181818 !important;
     }
 
-    /* Profil İkonlarındaki Sarı ve Kırmızı Renkleri Siyaha/Siyah-Beyaza Çevirme */
+    /* Profil İkonlarındaki Renkleri Siyaha/Griye Çevirme */
     [data-testid="stChatMessageAvatar"] {
         background-color: #1a1a1a !important;
         filter: grayscale(100%) brightness(0.8) !important;
         border-radius: 50% !important;
     }
     
-    /* Alt Yazma Kutusu (Ekranın En Altına Sabitlenir) */
+    /* Alt Yazma Kutusu */
     .stChatInputContainer {
         background-color: #0a0a0a !important;
         border-radius: 16px !important;
@@ -71,7 +71,7 @@ st.markdown("""
         border-color: #555555 !important;
     }
 
-    /* Sarı, Kırmızı ve Mavi Hata/Uyarı Kutularını Siyaha Çevirme */
+    /* Sarı, Kırmızı ve Mavi Kutuları Siyaha Çevirme */
     .stAlert, [data-testid="stAlert"] {
         background-color: #0a0a0a !important;
         border: 1px solid #222222 !important;
@@ -83,7 +83,7 @@ st.markdown("""
         fill: #888888 !important;
     }
 
-    /* Input ve Selectbox Alanları */
+    /* Form Elemanları */
     div[data-baseweb="input"] > div,
     div[data-baseweb="select"] > div {
         background-color: #0a0a0a !important;
@@ -119,19 +119,6 @@ with st.sidebar:
         st.session_state.user_name = user_name
 
     st.markdown("---")
-
-    # Aktif Ücretsiz Modeller
-    model_choice = st.selectbox(
-        "Model Seçimi:",
-        [
-            "deepseek/deepseek-r1:free",
-            "meta-llama/llama-3.1-8b-instruct:free",
-            "qwen/qwen-2.5-coder-32b-instruct:free",
-            "openrouter/auto"
-        ]
-    )
-
-    st.markdown("---")
     
     personality = st.selectbox(
         "Asistan Modu:",
@@ -140,7 +127,7 @@ with st.sidebar:
     
     name_prompt = f" Kullanıcının adı '{user_name}'." if user_name else ""
     
-    # Tüm cevapların Türkçe, detaylı ve açıklayıcı olmasını sağlayan sistem talimatı
+    # Türkçe, detaylı ve açıklayıcı yanıt sistemi
     instructions = {
         "Detaylı Uzman": (
             f"Sen VorpH adında üst düzey bir yapay zeka asistanısın.{name_prompt} "
@@ -203,7 +190,30 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Alt Taraftaki Yazma Kutusu (Ekranın en altındadır)
+# Otomatik Model Seçici ve Hata Önleyici Fonksiyon
+def get_ai_response(messages_list):
+    candidate_models = [
+        "openrouter/auto",
+        "google/gemini-2.0-flash-001",
+        "meta-llama/llama-3.1-8b-instruct:free",
+        "deepseek/deepseek-r1:free"
+    ]
+    
+    last_error = None
+    for model_id in candidate_models:
+        try:
+            completion = client.chat.completions.create(
+                model=model_id,
+                messages=messages_list
+            )
+            return completion.choices[0].message.content
+        except Exception as e:
+            last_error = e
+            continue
+            
+    raise last_error
+
+# Alt Taraftaki Yazma Kutusu
 if prompt := st.chat_input("VorpH'a detaylı bir soru sorun..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -216,12 +226,7 @@ if prompt := st.chat_input("VorpH'a detaylı bir soru sorun..."):
                 for m in st.session_state.messages:
                     api_messages.append({"role": m["role"], "content": m["content"]})
 
-                completion = client.chat.completions.create(
-                    model=model_choice,
-                    messages=api_messages
-                )
-                
-                bot_response = completion.choices[0].message.content
+                bot_response = get_ai_response(api_messages)
                 st.markdown(bot_response)
                 st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
