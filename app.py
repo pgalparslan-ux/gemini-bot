@@ -40,25 +40,25 @@ if prompt := st.chat_input("Bir şeyler yazın..."):
         with st.spinner("Düşünüyor..."):
             bot_response = None
             
-            # Ana Model Denemesi
+            # Doğrudan Kararlı Model (gemini-1.5-flash) Denemesi
             try:
                 response = client.models.generate_content(
-                    model='gemini-3.8-flash',
+                    model='gemini-1.5-flash',
                     contents=prompt,
                     config=config
                 )
                 bot_response = response.text
-            except Exception:
-                # 503 veya sunucu hatası durumunda sessizce yedek modele geçiş
+            except Exception as e:
+                # Yedek olarak flash-lite dene
                 try:
                     response = client.models.generate_content(
-                        model='gemini-1.5-flash',
+                        model='gemini-1.5-flash-8b',
                         contents=prompt,
                         config=config
                     )
                     bot_response = response.text
-                except Exception as e:
-                    st.error("Sunucular şu an çok yoğun, lütfen birkaç saniye sonra tekrar deneyin.")
+                except Exception:
+                    st.error("Google API şu an dünya genelinde çok yoğun. Lütfen 10-15 saniye sonra tekrar deneyin.")
 
             if bot_response:
                 st.markdown(bot_response)
