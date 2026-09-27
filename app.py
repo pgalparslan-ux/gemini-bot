@@ -7,7 +7,8 @@ st.set_page_config(page_title="Gemini AI Sohbet", page_icon="🤖")
 st.title("🤖 Gemini Yapay Zeka Asistanı")
 
 API_KEY = "AQ.Ab8RN6J_6-EymS1_sAHfxNJwqzlsgZmx37ZlidXSHO7aUlux-w"
-URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={API_KEY}"
+URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+
 
 # Sohbet geçmişini hafızada tut
 if "messages" not in st.session_state:
