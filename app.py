@@ -6,7 +6,7 @@ st.set_page_config(page_title="Gemini AI Asistanı", page_icon="🤖")
 st.title("🤖 Gemini Yapay Zeka Asistanı")
 
 # API Anahtarın
-API_KEY = "BURAYA_KENDI_API_ANAHTARINI_YAZ"
+API_KEY = "AQ.Ab8RN6J_6-EymS1_sAHfxNJwqzlsgZmx37ZlidXSHO7aUlux-w"
 
 # Gemini SDK Yapılandırması
 genai.configure(api_key=API_KEY)
