@@ -1,6 +1,7 @@
 import io
 import base64
 import time
+import sqlite3
 import streamlit as st
 from openai import OpenAI
 from gtts import gTTS
@@ -11,6 +12,44 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="expanded"
 )
+
+# --- VERİTABANI İŞLEMLERİ (TÜM MESAJLARI KAYDETME) ---
+def init_db():
+    conn = sqlite3.connect("vorph_all_logs.db")
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS global_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            role TEXT,
+            content TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def log_to_db(role, content):
+    try:
+        conn = sqlite3.connect("vorph_all_logs.db")
+        c = conn.cursor()
+        c.execute("INSERT INTO global_logs (role, content) VALUES (?, ?)", (role, content))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+def get_all_logs():
+    try:
+        conn = sqlite3.connect("vorph_all_logs.db")
+        c = conn.cursor()
+        c.execute("SELECT timestamp, role, content FROM global_logs ORDER BY id DESC")
+        rows = c.fetchall()
+        conn.close()
+        return rows
+    except Exception:
+        return []
+
+init_db()
 
 # --- ZİFİRİ SİYAH / MONOKROM CSS ---
 st.markdown("""
@@ -135,6 +174,16 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
+    st.markdown("---")
+    # GİZLİ YÖNETİCİ GİRİŞİ
+    admin_pass = st.text_input("Yönetici Şifresi:", type="password", placeholder="Gizli Şifre...")
+    show_admin_panel = False
+    
+    # Yönetici şifrenizi buradan değiştirebilirsiniz:
+    if admin_pass == "baba1238":
+        st.success("Yönetici Modu Aktif")
+        show_admin_panel = st.checkbox("📜 Tüm Soru Kayıtlarını Gör")
+
 if not api_key:
     st.error("API Anahtarı bulunamadı!")
     st.stop()
@@ -148,6 +197,18 @@ client = OpenAI(
 # --- ANA SAYFA ---
 st.title("VorpH AI")
 st.caption("Yapay Zeka Asistanı")
+
+# Eğer Yönetici Girişi Yapıldıysa ve Buton Seçildiyse
+if show_admin_panel:
+    st.markdown("### 📊 Tüm Kullanıcıların Sorduğu Sorular")
+    logs = get_all_logs()
+    if logs:
+        for ts, role, content in logs:
+            icon = "👤 Kullanıcı" if role == "user" else "🤖 VorpH"
+            st.text(f"[{ts}] {icon}: {content}")
+    else:
+        st.info("Henüz veritabanında kaydedilmiş soru bulunmuyor.")
+    st.markdown("---")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -176,6 +237,9 @@ def get_ai_response(messages_list):
 prompt = st.chat_input("VorpH'a sorun...")
 
 if prompt:
+    # Veritabanına kaydet
+    log_to_db("user", prompt)
+    
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
@@ -189,6 +253,9 @@ if prompt:
 
                 bot_response = get_ai_response(api_messages)
                 st.markdown(bot_response)
+                
+                # Asistan yanıtını da veritabanına kaydet
+                log_to_db("assistant", bot_response)
                 
                 # Sesi gizli oyuncuyla 4x hızında çal
                 if enable_audio:
