@@ -180,8 +180,7 @@ with st.sidebar:
     show_admin_panel = False
     
     # Yönetici şifrenizi buradan değiştirebilirsiniz:
-    if admin_pass == "baba1234
-":
+    if admin_pass == "baba1234":
         st.success("Yönetici Modu Aktif")
         show_admin_panel = st.checkbox("📜 Tüm Soru Kayıtlarını Gör")
 
