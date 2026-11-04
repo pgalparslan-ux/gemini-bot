@@ -5,7 +5,7 @@ from openai import OpenAI
 
 st.set_page_config(
     page_title="VorpH AI",
-    page_icon="◼️",
+    page_icon="",
     layout="centered",
     initial_sidebar_state="expanded"
 )
@@ -13,7 +13,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     .stApp { background-color: #000000 !important; color: #e0e0e0 !important; }
-    h1, h2, h3 { color: #ffffff !important; letter-spacing: -0.5px; }
+    h1, h2, h3 { color: #ffffff !important; }
     section[data-testid="stSidebar"] {
         background-color: #050505 !important;
         border-right: 1px solid #1a1a1a !important;
@@ -38,7 +38,7 @@ if "user_name" not in st.session_state:
 
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 if not api_key:
-    st.error("Secrets icinde OPENROUTER_API_KEY bulunamadi!")
+    st.error("Secrets icinde OPENROUTER_API_KEY bulunamadi")
     st.stop()
 
 client = OpenAI(
@@ -50,25 +50,24 @@ client = OpenAI(
 with st.sidebar:
     st.title("VorpH Kontrol")
     
-    user_name = st.text_input("Isminiz:", value=st.session_state.user_name, placeholder="Orn: Ahmet")
+    user_name = st.text_input("Isminiz", value=st.session_state.user_name, placeholder="Ornek Ahmet")
     st.session_state.user_name = user_name
-
     st.markdown("---")
     
     personality = st.selectbox(
         "Asistan Modu",
-        ["Genel Asistan", "Detayli Uzman", "Yazilim Uzmami", "Resmi / Akademik"]
+        ["Genel Asistan", "Detayli Uzman", "Yazilim Uzmami", "Resmi"]
     )
 
     model_choice = st.selectbox(
         "Model",
-        ["Hizli & Ucuz (Gemini 2.0 Flash)", "Akilli (Llama 3.3 70B)", "Dengeli (Auto)"],
+        ["Hizli ve Ucuz", "Akilli", "Dengeli"],
         index=0
     )
     model_map = {
-        "Hizli & Ucuz (Gemini 2.0 Flash)": "google/gemini-2.0-flash-001",
-        "Akilli (Llama 3.3 70B)": "meta-llama/llama-3.3-70b-instruct",
-        "Dengeli (Auto)": "openrouter/auto"
+        "Hizli ve Ucuz": "google/gemini-2.0-flash-001",
+        "Akilli": "meta-llama/llama-3.3-70b-instruct",
+        "Dengeli": "openrouter/auto"
     }
     selected_model = model_map[model_choice]
 
@@ -86,7 +85,7 @@ with st.sidebar:
                 text = uploaded_file.read().decode("utf-8", errors="ignore")
             
             st.session_state.file_context = text[:15000]
-            st.success(f"Dosya yuklendi: {len(text)} karakter")
+            st.success("Dosya yuklendi")
         except Exception as e:
             st.error(f"Dosya okunamadi: {e}")
     else:
@@ -96,33 +95,29 @@ with st.sidebar:
                 st.rerun()
 
     st.markdown("---")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Sohbeti Sifirla", use_container_width=True):
-            st.session_state.messages = []
-            st.rerun()
-    with col2:
-        if st.session_state.messages:
-            chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
-            st.download_button("Indir", chat_text, file_name="vorph_sohbet.txt", use_container_width=True)
+    if st.button("Sohbeti Sifirla", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
+    
+    if st.session_state.messages:
+        chat_text = "\n\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages])
+        st.download_button("Sohbeti Indir", chat_text, file_name="vorph_sohbet.txt", use_container_width=True)
 
-# --- DUZELTILMIS KISIM BURASI ---
+# System prompt
 user_name_val = st.session_state.get("user_name", "")
+name_prompt = ""
 if user_name_val:
-    name_prompt = f" Kullanicinin adi {user_name_val} ve ona ismiyle hitap et."
-else:
-    name_prompt = ""
+    name_prompt = " Kullanicinin adi " + user_name_val + " ve ona ismiyle hitap et."
 
+file_prompt = ""
 if st.session_state.file_context:
-    file_prompt = f"\n\nKullanici bir belge yukledi, bu belgeyi dikkate alarak cevap ver. Belge Icerigi:\n{st.session_state.file_context}\n"
-else:
-    file_prompt = ""
+    file_prompt = " Kullanici belge yukledi, belgeyi dikkate al. Belge: " + st.session_state.file_context
 
 personality_prompts = {
-    "Genel Asistan": "Sen VorpH adinda yardimsever, net ve samimi bir asistansin.",
-    "Detayli Uzman": "Sen VorpH adinda detayci bir uzmansin. Her cevabinda ornekler, artilar/eksiler ve kaynak mantigi ver.",
-    "Yazilim Uzmami": "Sen VorpH adinda senior bir yazilim mimarisin. Kod verirken temiz, yorum satirli ve en iyi pratiklere uygun yaz.",
-    "Resmi / Akademik": "Sen VorpH adinda resmi ve akademik dille yazan bir asistansin. Cevaplarin yapilandirilmis ve profesyonel olsun."
+    "Genel Asistan": "Sen VorpH adinda yardimsever bir asistansin.",
+    "Detayli Uzman": "Sen VorpH adinda detayci bir uzmansin. Ornekler ve artilar eksiler ver.",
+    "Yazilim Uzmami": "Sen VorpH adinda senior yazilim mimarisin. Temiz kod ver.",
+    "Resmi": "Sen VorpH adinda resmi dille yazan bir asistansin."
 }
 
 system_instruction = personality_prompts[personality] + name_prompt + file_prompt + " Tum yanitlarini Turkce ver."
@@ -134,4 +129,35 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-prompt = st.chat_input("
+user_prompt = st.chat_input("Bir sey sor...")
+
+if user_prompt:
+    if "last_request_time" in st.session_state and time.time() - st.session_state.last_request_time < 1.5:
+        st.warning("Cok hizlisin, 2 saniye bekle.")
+        st.stop()
+    st.session_state.last_request_time = time.time()
+
+    st.session_state.messages.append({"role": "user", "content": user_prompt})
+    with st.chat_message("user"):
+        st.markdown(user_prompt)
+
+    with st.chat_message("assistant"):
+        try:
+            api_messages = [{"role": "system", "content": system_instruction}]
+            api_messages.extend(st.session_state.messages)
+
+            stream = client.chat.completions.create(
+                model=selected_model,
+                messages=api_messages,
+                stream=True,
+                temperature=0.7,
+            )
+            
+            full_response = st.write_stream(
+                (chunk.choices[0].delta.content for chunk in stream if chunk.choices[0].delta.content)
+            )
+            
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+        except Exception as e:
+            st.error(f"Model hatasi: {str(e)}")
