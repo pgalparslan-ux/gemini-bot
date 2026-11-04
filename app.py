@@ -4,7 +4,11 @@ import sqlite3
 import streamlit as st
 from openai import OpenAI
 
-st.set_page_config(page_title="VorpH AI", page_icon="◼️", layout="centered")
+st.set_page_config(
+    page_title="VorpH AI",
+    page_icon="◼️",
+    layout="centered"
+)
 
 st.markdown("""
 <style>
@@ -28,7 +32,7 @@ def get_conn():
 def init_db():
     conn = get_conn()
     c = conn.cursor()
-    c.execute("CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY, user_name TEXT, title TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    c.execute("CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY, user_name TEXT, title TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id TEXT, role TEXT, content TEXT)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_chats_user ON chats(user_name)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_msg_chat ON messages(chat_id)")
@@ -63,8 +67,8 @@ def add_message_db(chat_id, role, content):
     conn = get_conn()
     conn.execute("INSERT INTO messages (chat_id, role, content) VALUES (?, ?, ?)", (chat_id, role, content))
     if role == "user":
-        kisa_baslik = content[:30]
-        conn.execute("UPDATE chats SET title=? WHERE id=? AND title='Yeni Sohbet'", (kisa_baslik, chat_id))
+        kisa = content[:30]
+        conn.execute("UPDATE chats SET title=? WHERE id=? AND title='Yeni Sohbet'", (kisa, chat_id))
     conn.commit()
     conn.close()
 
@@ -86,16 +90,23 @@ if "messages" not in st.session_state:
 
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 if not api_key:
-    st.error("Secrets içinde OPENROUTER_API_KEY bulunamadı")
+    st.error("Secrets icinde OPENROUTER_API_KEY yok")
     st.stop()
 
-client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=api_key
+)
 
 with st.sidebar:
     st.title("VorpH AI")
     st.caption("Profesyonel Asistan")
     
-    user_name_input = st.text_input("İsminiz", value=st.session_state.user_name, placeholder="Örn: Ahmet")
+    user_name_input = st.text_input(
+        "İsminiz",
+        value=st.session_state.user_name,
+        placeholder="Örn: Ahmet"
+    )
     if user_name_input != st.session_state.user_name:
         st.session_state.user_name = user_name_input
         st.session_state.current_chat_id = None
@@ -107,5 +118,112 @@ with st.sidebar:
         st.stop()
 
     st.markdown("---")
-    personality = st.selectbox("Asistan Modu", ["Genel Asistan", "Yazılım Uzmanı", "Detaylı Uzman", "Resmî"], index=0)
-    model_opt = st.selectbox("Model", ["Hızlı (Gemini Flash)", "Akıllı (Llama 70B)", "
+    
+    asistan_modlari = [
+        "Genel Asistan",
+        "Yazılım Uzmanı",
+        "Detaylı Uzman",
+        "Resmî"
+    ]
+    personality = st.selectbox(
+        "Asistan Modu",
+        asistan_modlari
+    )
+
+    model_listesi = [
+        "Hızlı - Gemini Flash",
+        "Akıllı - Llama 70B",
+        "Dengeli - Auto"
+    ]
+    model_opt = st.selectbox(
+        "Model",
+        model_listesi
+    )
+    
+    model_map = {
+        "Hızlı - Gemini Flash": "google/gemini-2.0-flash-001",
+        "Akıllı - Llama 70B": "meta-llama/llama-3.3-70b-instruct",
+        "Dengeli - Auto": "openrouter/auto"
+    }
+    selected_model = model_map[model_opt]
+
+    if st.button("Yeni Sohbet", use_container_width=True, type="primary"):
+        new_id = create_chat(st.session_state.user_name)
+        st.session_state.current_chat_id = new_id
+        st.session_state.messages = []
+        st.rerun()
+
+    st.markdown("---")
+    st.subheader("Geçmiş Sohbetler")
+    chats = get_chats(st.session_state.user_name)
+    for cid, title in chats:
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            if st.button(title, key=f"chat_{cid}", use_container_width=True):
+                st.session_state.current_chat_id = cid
+                st.session_state.messages = get_messages_db(cid)
+                st.rerun()
+        with col2:
+            if st.button("SİL", key=f"del_{cid}"):
+                delete_chat_db(cid)
+                if st.session_state.current_chat_id == cid:
+                    st.session_state.current_chat_id = None
+                    st.session_state.messages = []
+                st.rerun()
+
+if not st.session_state.current_chat_id:
+    if chats:
+        st.session_state.current_chat_id = chats[0][0]
+        st.session_state.messages = get_messages_db(chats[0][0])
+    else:
+        new_id = create_chat(st.session_state.user_name)
+        st.session_state.current_chat_id = new_id
+
+st.title("VorpH AI")
+
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
+
+prompts = {
+    "Genel Asistan": "Sen VorpH adında samimi bir asistansın.",
+    "Yazılım Uzmanı": "Sen VorpH adında kıdemli bir yazılım mimarisin.",
+    "Detaylı Uzman": "Sen VorpH adında detaylı anlatan bir uzmansın.",
+    "Resmî": "Sen VorpH adında resmi bir asistansın."
+}
+
+ad = st.session_state.user_name
+sistem_talimati = prompts[personality] + f" Kullanıcının adı {ad}. Türkçe cevap ver."
+
+kullanici_girdisi = st.chat_input("Bir şey yazın...")
+
+if kullanici_girdisi:
+    simdi = time.time()
+    if st.session_state.get("last_time") and simdi - st.session_state.get("last_time") < 1:
+        st.warning("Biraz yavaş")
+        st.stop()
+    st.session_state.last_time = simdi
+
+    st.session_state.messages.append({"role": "user", "content": kullanici_girdisi})
+    add_message_db(st.session_state.current_chat_id, "user", kullanici_girdisi)
+
+    with st.chat_message("user"):
+        st.markdown(kullanici_girdisi)
+
+    with st.chat_message("assistant"):
+        api_mesajlari = [{"role": "system", "content": sistem_talimati}]
+        api_mesajlari.extend(st.session_state.messages)
+        try:
+            stream = client.chat.completions.create(
+                model=selected_model,
+                messages=api_mesajlari,
+                stream=True,
+                temperature=0.7
+            )
+            yanit = st.write_stream(
+                (parca.choices[0].delta.content for parca in stream if parca.choices[0].delta.content)
+            )
+            st.session_state.messages.append({"role": "assistant", "content": yanit})
+            add_message_db(st.session_state.current_chat_id, "assistant", yanit)
+        except Exception as e:
+            st.error(f"Hata: {str(e)}")
