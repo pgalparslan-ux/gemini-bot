@@ -1,191 +1,46 @@
-import io
-import base64
 import time
-import sqlite3
+import uuid
 import streamlit as st
 from openai import OpenAI
-from gtts import gTTS
 
-# Sayfa Yapılandırması
+# --- SAYFA AYARLARI ---
 st.set_page_config(
     page_title="VorpH AI",
+    page_icon="◼️",
     layout="centered",
     initial_sidebar_state="expanded"
 )
 
-# --- VERİTABANI İŞLEMLERİ (TÜM MESAJLARI KAYDETME) ---
-def init_db():
-    conn = sqlite3.connect("vorph_all_logs.db")
-    c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS global_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            role TEXT,
-            content TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-def log_to_db(role, content):
-    try:
-        conn = sqlite3.connect("vorph_all_logs.db")
-        c = conn.cursor()
-        c.execute("INSERT INTO global_logs (role, content) VALUES (?, ?)", (role, content))
-        conn.commit()
-        conn.close()
-    except Exception:
-        pass
-
-def get_all_logs():
-    try:
-        conn = sqlite3.connect("vorph_all_logs.db")
-        c = conn.cursor()
-        c.execute("SELECT timestamp, role, content FROM global_logs ORDER BY id DESC")
-        rows = c.fetchall()
-        conn.close()
-        return rows
-    except Exception:
-        return []
-
-init_db()
-
-# --- ZİFİRİ SİYAH / MONOKROM CSS ---
+# --- MONOKROM CSS ---
 st.markdown("""
 <style>
-    .stApp {
-        background-color: #000000 !important;
-        color: #e0e0e0 !important;
-    }
-    h1, h2, h3 {
-        color: #ffffff !important;
-        font-weight: 600 !important;
-        letter-spacing: -0.5px;
-    }
+    .stApp { background-color: #000000 !important; color: #e0e0e0 !important; }
+    h1, h2, h3 { color: #ffffff !important; letter-spacing: -0.5px; }
     section[data-testid="stSidebar"] {
         background-color: #050505 !important;
         border-right: 1px solid #1a1a1a !important;
     }
-    [data-testid="stChatMessage"] {
-        padding: 14px 18px !important;
-        margin-bottom: 12px !important;
-        border: none !important;
-    }
-    [data-testid="stChatMessage"]:nth-child(even) {
-        background-color: #111111 !important;
-        color: #ffffff !important;
-        border-radius: 12px !important;
-        border: 1px solid #222222 !important;
-    }
-    [data-testid="stChatMessage"]:nth-child(odd) {
-        background-color: #050505 !important;
-        color: #d0d0d0 !important;
-        border-radius: 12px !important;
-        border: 1px solid #181818 !important;
-    }
-
-    /* Profil İkonlarındaki Renkleri Siyah-Gri Yapma */
-    [data-testid="stChatMessageAvatar"] {
-        background-color: #1a1a1a !important;
-        filter: grayscale(100%) brightness(0.8) !important;
-        border-radius: 50% !important;
-    }
-
     .stChatInputContainer {
         background-color: #0a0a0a !important;
+        border: 1px solid #222 !important;
         border-radius: 16px !important;
-        border: 1px solid #222222 !important;
     }
-    .stAlert, [data-testid="stAlert"] {
-        background-color: #0a0a0a !important;
-        border: 1px solid #222222 !important;
-        color: #e0e0e0 !important;
-        border-radius: 12px !important;
-    }
-    button {
-        background-color: #111111 !important;
-        color: #ffffff !important;
-        border: 1px solid #222222 !important;
-        border-radius: 10px !important;
-    }
-    button:hover {
-        border-color: #555555 !important;
-        color: #ffffff !important;
-    }
+    button { border-radius: 10px !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# API Anahtarı
+# --- SESSION ---
+if "user_id" not in st.session_state:
+    st.session_state.user_id = str(uuid.uuid4())[:8]
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "file_context" not in st.session_state:
+    st.session_state.file_context = ""
+
+# --- API ---
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
-
-# --- GİZLİ VE 4X HIZINDA SES OYNATICI ---
-def play_audio_4x(text):
-    try:
-        tts = gTTS(text=text, lang='tr')
-        fp = io.BytesIO()
-        tts.write_to_fp(fp)
-        fp.seek(0)
-        
-        audio_id = f"audio_{int(time.time() * 1000)}"
-        b64_audio = base64.b64encode(fp.read()).decode()
-        
-        audio_html = f"""
-            <audio id="{audio_id}" autoplay style="display:none;" onplay="this.playbackRate = 4.0;">
-                <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
-            </audio>
-            <script>
-                setTimeout(function() {{
-                    var aud = document.getElementById("{audio_id}");
-                    if(aud) {{ aud.playbackRate = 4.0; }}
-                }}, 50);
-            </script>
-        """
-        st.markdown(audio_html, unsafe_allow_html=True)
-    except Exception:
-        pass
-
-# --- SOL MENÜ (SIDEBAR) ---
-with st.sidebar:
-    st.title("Kontrol Paneli")
-    st.markdown("---")
-    
-    user_name = st.text_input("İsminiz:", value=st.session_state.get("user_name", ""), placeholder="Adınızı giriniz...")
-    if user_name:
-        st.session_state.user_name = user_name
-
-    st.markdown("---")
-    
-    enable_audio = st.toggle("🔊 Sesli Yanıt", value=True)
-    
-    st.markdown("---")
-    
-    personality = st.selectbox(
-        "Asistan Modu:",
-        ["Genel Asistan", "Detaylı Uzman", "Yazılım Uzmanı", "Resmi"]
-    )
-    
-    name_prompt = f" Kullanıcının adı '{user_name}'." if user_name else ""
-    system_instruction = f"Sen VorpH adında bir yapay zeka asistanısın.{name_prompt} Tüm yanıtlarını Türkçe olarak ver."
-    
-    st.markdown("---")
-    
-    if st.button("Sohbeti Sıfırla", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
-
-    st.markdown("---")
-    # GİZLİ YÖNETİCİ GİRİŞİ
-    admin_pass = st.text_input("Yönetici Şifresi:", type="password", placeholder="Gizli Şifre...")
-    show_admin_panel = False
-    
-    # Yönetici şifrenizi buradan değiştirebilirsiniz:
-    if admin_pass == "baba1234":
-        st.success("Yönetici Modu Aktif")
-        show_admin_panel = st.checkbox("📜 Tüm Soru Kayıtlarını Gör")
-
 if not api_key:
-    st.error("API Anahtarı bulunamadı!")
+    st.error("Secrets içinde OPENROUTER_API_KEY bulunamadı! Streamlit > Settings > Secrets kısmına ekle.")
     st.stop()
 
 client = OpenAI(
@@ -194,74 +49,74 @@ client = OpenAI(
     default_headers={"HTTP-Referer": "https://streamlit.io", "X-Title": "VorpH AI"}
 )
 
-# --- ANA SAYFA ---
-st.title("VorpH AI")
-st.caption("Yapay Zeka Asistanı")
-
-# Eğer Yönetici Girişi Yapıldıysa ve Buton Seçildiyse
-if show_admin_panel:
-    st.markdown("### 📊 Tüm Kullanıcıların Sorduğu Sorular")
-    logs = get_all_logs()
-    if logs:
-        for ts, role, content in logs:
-            icon = "👤 Kullanıcı" if role == "user" else "🤖 VorpH"
-            st.text(f"[{ts}] {icon}: {content}")
-    else:
-        st.info("Henüz veritabanında kaydedilmiş soru bulunmuyor.")
-    st.markdown("---")
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# Mesaj Geçmişi
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-# Model Seçim Fonksiyonu
-def get_ai_response(messages_list):
-    candidate_models = [
-        "openrouter/auto",
-        "google/gemini-2.0-flash-001",
-        "meta-llama/llama-3.1-8b-instruct:free"
-    ]
-    for model_id in candidate_models:
-        try:
-            completion = client.chat.completions.create(model=model_id, messages=messages_list)
-            return completion.choices[0].message.content
-        except Exception:
-            continue
-    raise Exception("Modellere erişilemedi.")
-
-# Mesaj Girişi
-prompt = st.chat_input("VorpH'a sorun...")
-
-if prompt:
-    # Veritabanına kaydet
-    log_to_db("user", prompt)
+# --- SIDEBAR ---
+with st.sidebar:
+    st.title("VorpH Kontrol")
     
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+    user_name = st.text_input("İsminiz:", value=st.session_state.get("user_name", ""), placeholder="Örn: Ahmet")
+    if user_name:
+        st.session_state.user_name = user_name
 
-    with st.chat_message("assistant"):
-        with st.spinner("VorpH düşünüyor..."):
-            try:
-                api_messages = [{"role": "system", "content": system_instruction}]
-                for m in st.session_state.messages:
-                    api_messages.append({"role": m["role"], "content": m["content"]})
+    st.markdown("---")
+    
+    personality = st.selectbox(
+        "Asistan Modu",
+        ["Genel Asistan", "Detaylı Uzman", "Yazılım Uzmanı", "Resmi / Akademik"]
+    )
 
-                bot_response = get_ai_response(api_messages)
-                st.markdown(bot_response)
-                
-                # Asistan yanıtını da veritabanına kaydet
-                log_to_db("assistant", bot_response)
-                
-                # Sesi gizli oyuncuyla 4x hızında çal
-                if enable_audio:
-                    play_audio_4x(bot_response)
+    model_choice = st.selectbox(
+        "Model",
+        ["Hızlı & Ucuz (Gemini 2.0 Flash)", "Akıllı (Llama 3.3 70B)", "Dengeli (Auto)"],
+        index=0
+    )
+    model_map = {
+        "Hızlı & Ucuz (Gemini 2.0 Flash)": "google/gemini-2.0-flash-001",
+        "Akıllı (Llama 3.3 70B)": "meta-llama/llama-3.3-70b-instruct",
+        "Dengeli (Auto)": "openrouter/auto"
+    }
+    selected_model = model_map[model_choice]
 
-                st.session_state.messages.append({"role": "assistant", "content": bot_response})
+    st.markdown("---")
+    st.subheader("Belge ile Sohbet")
+    uploaded_file = st.file_uploader("PDF veya TXT yükle", type=["pdf", "txt"])
+    
+    if uploaded_file:
+        try:
+            if uploaded_file.type == "application/pdf":
+                import fitz  # PyMuPDF
+                doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+                text = "".join([page.get_text() for page in doc])
+            else:
+                text = uploaded_file.read().decode("utf-8", errors="ignore")
+            
+            st.session_state.file_context = text[:15000]  # İlk 15k karakteri al
+            st.success(f"Dosya yüklendi: {len(text)} karakter")
+        except Exception as e:
+            st.error(f"Dosya okunamadı: {e}")
+    else:
+        if st.session_state.file_context:
+            if st.button("Yüklenen Dosyayı Kaldır"):
+                st.session_state.file_context = ""
+                st.rerun()
 
-            except Exception as e:
-                st.error(f"Hata oluştu: {str(e)}")
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Sohbeti Sıfırla", use_container_width=True):
+            st.session_state.messages = []
+            st.rerun()
+    with col2:
+        # Sohbeti indir
+        if st.session_state.messages:
+            chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
+            st.download_button("İndir", chat_text, file_name="vorph_sohbet.txt", use_container_width=True)
+
+# --- SYSTEM PROMPT MANTIĞI ---
+personality_prompts = {
+    "Genel Asistan": "Sen VorpH adında yardımsever, net ve samimi bir asistansın.",
+    "Detaylı Uzman": "Sen VorpH adında detaycı bir uzmansın. Her cevabında örnekler, artılar/eksiler ve kaynak mantığı ver.",
+    "Yazılım Uzmanı": "Sen VorpH adında senior bir yazılım mimarısın. Kod verirken temiz, yorum satırlı ve en iyi pratiklere uygun yaz. Gereksiz açıklama yapma.",
+    "Resmi / Akademik": "Sen VorpH adında resmi ve akademik dille yazan bir asistansın. Cevapların yapılandırılmış ve profesyonel olsun."
+}
+
+name_prompt = f" Kullanıcının adı {st.session_state.get('user_name','')} ve ona
