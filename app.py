@@ -1,163 +1,218 @@
 import time
 import uuid
+import sqlite3
 import streamlit as st
 from openai import OpenAI
 
-st.set_page_config(
-    page_title="VorpH AI",
-    page_icon="",
-    layout="centered",
-    initial_sidebar_state="expanded"
-)
+# --- AYARLAR ---
+st.set_page_config(page_title="VorpH AI", page_icon="◼️", layout="centered")
 
+# --- CSS: CHATGPT TARZI + MOBIL ---
 st.markdown("""
 <style>
-    .stApp { background-color: #000000 !important; color: #e0e0e0 !important; }
-    h1, h2, h3 { color: #ffffff !important; }
-    section[data-testid="stSidebar"] {
-        background-color: #050505 !important;
-        border-right: 1px solid #1a1a1a !important;
+    .stApp { background: #0a0a0a !important; color: #ececec !important; }
+    section[data-testid="stSidebar"] { background: #050505 !important; border-right: 1px solid #1f1f1f !important; }
+    
+    /* Mesaj balonlari - ChatGPT tarzi */
+    [data-testid="stChatMessage"] { 
+        background: transparent !important; 
+        border: none !important;
+        padding: 1rem 0 !important;
     }
-    .stChatInputContainer {
-        background-color: #0a0a0a !important;
+    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) div[data-testid="stChatMessageContent"] {
+        background: #1e1e1e !important;
+        border-radius: 18px 18px 4px 18px !important;
+        padding: 12px 16px !important;
+        border: 1px solid #2a2a2a !important;
+    }
+    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) div[data-testid="stChatMessageContent"] {
+        background: #111111 !important;
+        border-radius: 18px 18px 18px 4px !important;
+        padding: 12px 16px !important;
         border: 1px solid #222 !important;
-        border-radius: 16px !important;
     }
-    button { border-radius: 10px !important; }
+    /* Mobil */
+    @media (max-width: 768px) {
+        .stChatInputContainer { padding: 0 5px !important; }
+        [data-testid="stChatMessageContent"] { max-width: 95% !important; }
+    }
+    /* Yaziyor efekti icin */
+    .stSpinner > div { border-top-color: #fff !important; }
 </style>
 """, unsafe_allow_html=True)
 
-if "user_id" not in st.session_state:
-    st.session_state.user_id = str(uuid.uuid4())[:8]
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "file_context" not in st.session_state:
-    st.session_state.file_context = ""
+# --- VERITABANI - PERFORMANSLI ---
+def get_conn():
+    conn = sqlite3.connect("vorph.db", check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    return conn
+
+def init_db():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY, user_name TEXT, title TEXT, model TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    c.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id TEXT, role TEXT, content TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_chats_user ON chats(user_name)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_msg_chat ON messages(chat_id)")
+    conn.commit()
+    conn.close()
+
+def create_chat(user_name, title="Yeni Sohbet"):
+    chat_id = str(uuid.uuid4())[:8]
+    conn = get_conn()
+    conn.execute("INSERT INTO chats (id, user_name, title) VALUES (?, ?, ?)", (chat_id, user_name, title))
+    conn.commit()
+    conn.close()
+    return chat_id
+
+def get_chats(user_name):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id, title, created_at FROM chats WHERE user_name=? ORDER BY created_at DESC", (user_name,))
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+def get_messages_db(chat_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT role, content FROM messages WHERE chat_id=? ORDER BY id ASC", (chat_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return [{"role": r[0], "content": r[1]} for r in rows]
+
+def add_message_db(chat_id, role, content):
+    conn = get_conn()
+    conn.execute("INSERT INTO messages (chat_id, role, content) VALUES (?, ?, ?)", (chat_id, role, content))
+    # Ilk mesajsa basligi guncelle
+    if role == "user":
+        conn.execute("UPDATE chats SET title=? WHERE id=? AND title='Yeni Sohbet'", (content[:30], chat_id))
+    conn.commit()
+    conn.close()
+
+def delete_chat_db(chat_id):
+    conn = get_conn()
+    conn.execute("DELETE FROM messages WHERE chat_id=?", (chat_id,))
+    conn.execute("DELETE FROM chats WHERE id=?", (chat_id,))
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# --- SESSION ---
 if "user_name" not in st.session_state:
     st.session_state.user_name = ""
+if "current_chat_id" not in st.session_state:
+    st.session_state.current_chat_id = None
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
+# --- API ---
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 if not api_key:
-    st.error("Secrets icinde OPENROUTER_API_KEY bulunamadi")
+    st.error("Secrets icinde OPENROUTER_API_KEY yok")
     st.stop()
+client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
 
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=api_key,
-    default_headers={"HTTP-Referer": "https://streamlit.io", "X-Title": "VorpH AI"}
-)
-
+# --- SIDEBAR ---
 with st.sidebar:
-    st.title("VorpH Kontrol")
+    st.title("VorpH AI")
+    st.caption("Profesyonel Asistan")
     
-    user_name = st.text_input("Isminiz", value=st.session_state.user_name, placeholder="Ornek Ahmet")
-    st.session_state.user_name = user_name
-    st.markdown("---")
-    
-    personality = st.selectbox(
-        "Asistan Modu",
-        ["Genel Asistan", "Detayli Uzman", "Yazilim Uzmami", "Resmi"]
-    )
-
-    model_choice = st.selectbox(
-        "Model",
-        ["Hizli ve Ucuz", "Akilli", "Dengeli"],
-        index=0
-    )
-    model_map = {
-        "Hizli ve Ucuz": "google/gemini-2.0-flash-001",
-        "Akilli": "meta-llama/llama-3.3-70b-instruct",
-        "Dengeli": "openrouter/auto"
-    }
-    selected_model = model_map[model_choice]
-
-    st.markdown("---")
-    st.subheader("Belge ile Sohbet")
-    uploaded_file = st.file_uploader("PDF veya TXT yukle", type=["pdf", "txt"])
-    
-    if uploaded_file:
-        try:
-            if uploaded_file.type == "application/pdf":
-                import fitz
-                doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-                text = "".join([page.get_text() for page in doc])
-            else:
-                text = uploaded_file.read().decode("utf-8", errors="ignore")
-            
-            st.session_state.file_context = text[:15000]
-            st.success("Dosya yuklendi")
-        except Exception as e:
-            st.error(f"Dosya okunamadi: {e}")
-    else:
-        if st.session_state.file_context:
-            if st.button("Yuklenen Dosyayi Kaldir"):
-                st.session_state.file_context = ""
-                st.rerun()
-
-    st.markdown("---")
-    if st.button("Sohbeti Sifirla", use_container_width=True):
+    user_name_input = st.text_input("Isminiz", value=st.session_state.user_name, placeholder="Ismini yaz")
+    if user_name_input != st.session_state.user_name:
+        st.session_state.user_name = user_name_input
+        st.session_state.current_chat_id = None
         st.session_state.messages = []
         st.rerun()
-    
-    if st.session_state.messages:
-        chat_text = "\n\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages])
-        st.download_button("Sohbeti Indir", chat_text, file_name="vorph_sohbet.txt", use_container_width=True)
 
-# System prompt
-user_name_val = st.session_state.get("user_name", "")
-name_prompt = ""
-if user_name_val:
-    name_prompt = " Kullanicinin adi " + user_name_val + " ve ona ismiyle hitap et."
+    if not st.session_state.user_name:
+        st.warning("Sohbet icin isminizi girin")
+        st.stop()
 
-file_prompt = ""
-if st.session_state.file_context:
-    file_prompt = " Kullanici belge yukledi, belgeyi dikkate al. Belge: " + st.session_state.file_context
+    st.markdown("---")
+    personality = st.selectbox("Asistan Modu", ["Genel Asistan", "Yazilim Uzmami", "Detayli Uzman", "Resmi"], index=0)
+    model_opt = st.selectbox("Model", ["Hizli (Gemini Flash)", "Akilli (Llama 70B)", "Dengeli (Auto)"])
+    model_map = {"Hizli (Gemini Flash)": "google/gemini-2.0-flash-001", "Akilli (Llama 70B)": "meta-llama/llama-3.3-70b-instruct", "Dengeli (Auto)": "openrouter/auto"}
+    selected_model = model_map[model_opt]
 
-personality_prompts = {
-    "Genel Asistan": "Sen VorpH adinda yardimsever bir asistansin.",
-    "Detayli Uzman": "Sen VorpH adinda detayci bir uzmansin. Ornekler ve artilar eksiler ver.",
-    "Yazilim Uzmami": "Sen VorpH adinda senior yazilim mimarisin. Temiz kod ver.",
-    "Resmi": "Sen VorpH adinda resmi dille yazan bir asistansin."
-}
+    if st.button("➕ Yeni Sohbet", use_container_width=True, type="primary"):
+        new_id = create_chat(st.session_state.user_name)
+        st.session_state.current_chat_id = new_id
+        st.session_state.messages = []
+        st.rerun()
 
-system_instruction = personality_prompts[personality] + name_prompt + file_prompt + " Tum yanitlarini Turkce ver."
+    st.markdown("---")
+    st.subheader("Gecmis Sohbetler")
+    chats = get_chats(st.session_state.user_name)
+    for cid, title, created in chats:
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            if st.button(title, key=f"chat_{cid}", use_container_width=True):
+                st.session_state.current_chat_id = cid
+                st.session_state.messages = get_messages_db(cid)
+                st.rerun()
+        with col2:
+            if st.button("🗑️", key=f"del_{cid}"):
+                delete_chat_db(cid)
+                if st.session_state.current_chat_id == cid:
+                    st.session_state.current_chat_id = None
+                    st.session_state.messages = []
+                st.rerun()
+
+# --- ANA EKRAN ---
+# Otomatik ilk sohbet olustur
+if not st.session_state.current_chat_id:
+    if chats:
+        st.session_state.current_chat_id = chats[0][0]
+        st.session_state.messages = get_messages_db(chats[0][0])
+    else:
+        new_id = create_chat(st.session_state.user_name)
+        st.session_state.current_chat_id = new_id
 
 st.title("VorpH AI")
-st.caption(f"ID: {st.session_state.user_id} | Model: {selected_model}")
+st.caption(f"Kullanici: {st.session_state.user_name} | Sohbet: {st.session_state.current_chat_id}")
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# Gecmisi goster
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
 
-user_prompt = st.chat_input("Bir sey sor...")
+# System prompt - gercekten calisan
+prompts = {
+    "Genel Asistan": "Sen VorpH adinda samimi ve yardimsever bir asistansin. Kisa ve net cevap ver.",
+    "Yazilim Uzmami": "Sen VorpH adinda kidemli bir yazilim mimarisin. Sadece kod odakli dusun, en iyi pratikleri kullan, kod bloklari ile acikla, gereksiz konusma.",
+    "Detayli Uzman": "Sen VorpH adinda arastirmaci bir uzmansin. Her konuyu ornekler, maddeler, artilar ve eksiler ile detayli anlat.",
+    "Resmi": "Sen VorpH adinda kurumsal ve resmi bir asistansin. Akademik ve profesyonel dil kullan."
+}
+user_name_val = st.session_state.user_name
+system_prompt = prompts[personality] + f" Kullanicinin adi {user_name_val}. Ona ismiyle hitap et. Turkce cevap ver."
 
-if user_prompt:
-    if "last_request_time" in st.session_state and time.time() - st.session_state.last_request_time < 1.5:
-        st.warning("Cok hizlisin, 2 saniye bekle.")
+# Input
+user_input = st.chat_input("Bir sey yaz...")
+
+if user_input:
+    # Rate limit
+    now = time.time()
+    if st.session_state.get("last_time") and now - st.session_state.get("last_time") < 1:
+        st.warning("Biraz yavas")
         st.stop()
-    st.session_state.last_request_time = time.time()
+    st.session_state.last_time = now
 
-    st.session_state.messages.append({"role": "user", "content": user_prompt})
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    add_message_db(st.session_state.current_chat_id, "user", user_input)
+
     with st.chat_message("user"):
-        st.markdown(user_prompt)
+        st.markdown(user_input)
 
     with st.chat_message("assistant"):
+        api_msgs = [{"role": "system", "content": system_prompt}]
+        api_msgs.extend(st.session_state.messages)
+        
         try:
-            api_messages = [{"role": "system", "content": system_instruction}]
-            api_messages.extend(st.session_state.messages)
-
-            stream = client.chat.completions.create(
-                model=selected_model,
-                messages=api_messages,
-                stream=True,
-                temperature=0.7,
-            )
-            
-            full_response = st.write_stream(
-                (chunk.choices[0].delta.content for chunk in stream if chunk.choices[0].delta.content)
-            )
-            
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
-
+            stream = client.chat.completions.create(model=selected_model, messages=api_msgs, stream=True, temperature=0.7)
+            response = st.write_stream((chunk.choices[0].delta.content for chunk in stream if chunk.choices[0].delta.content))
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            add_message_db(st.session_state.current_chat_id, "assistant", response)
         except Exception as e:
-            st.error(f"Model hatasi: {str(e)}")
+            st.error(f"Hata: {str(e)}")
