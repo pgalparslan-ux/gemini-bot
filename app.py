@@ -113,14 +113,27 @@ with st.sidebar:
     st.markdown("---")
     asistan_modlari = ["Genel Asistan", "Yazılım Uzmanı", "Detaylı Uzman", "Resmî"]
     personality = st.selectbox("Asistan Modu", asistan_modlari)
-    model_listesi = ["Hızlı - Gemini Flash", "Akıllı - Gemini 2.5 Flash", "Dengeli - Gemini 1.5 Flash"]
-    model_opt = st.selectbox("Model", model_listesi)
+
+    # --- BÜTÜN GEMINI MODELLERİ ---
     model_map = {
-        "Hızlı - Gemini Flash": "gemini-2.0-flash",
-        "Akıllı - Gemini 2.5 Flash": "gemini-2.5-flash",
-        "Dengeli - Gemini 1.5 Flash": "gemini-1.5-flash"
+        "Gemini 3 Pro - En Güçlü": "gemini-3-pro-preview",
+        "Gemini 3 Flash - Yeni Hızlı": "gemini-3-flash-preview",
+        "Gemini 2.5 Pro - Akıllı": "gemini-2.5-pro",
+        "Gemini 2.5 Flash - Dengeli": "gemini-2.5-flash",
+        "Gemini 2.5 Flash Lite - En Hızlı": "gemini-2.5-flash-lite",
+        "Gemini 2.0 Flash - Klasik Hızlı": "gemini-2.0-flash",
+        "Gemini 2.0 Flash Lite - Klasik Lite": "gemini-2.0-flash-lite",
+        "Gemini 1.5 Pro - Eski Güçlü": "gemini-1.5-pro",
+        "Gemini 1.5 Flash - Eski Hızlı": "gemini-1.5-flash",
+        "Gemini 1.5 Flash 8B - Flash 1.5 Lite": "gemini-1.5-flash-8b",
+        "Gemini 1.5 Flash Latest": "gemini-1.5-flash-latest",
+        "Gemini 1.5 Pro Latest": "gemini-1.5-pro-latest",
+        "Gemini 2.0 Flash 001 - Eski Kod": "gemini-2.0-flash-001",
     }
+    model_opt = st.selectbox("Model - Hepsini Dene", list(model_map.keys()))
     selected_model = model_map[model_opt]
+    st.caption(f"Secili kod: {selected_model}")
+
     if st.button("Yeni Sohbet", use_container_width=True, type="primary"):
         new_id = create_chat(st.session_state.user_name)
         st.session_state.current_chat_id = new_id
@@ -196,4 +209,4 @@ if kullanici_girdisi:
             st.session_state.messages.append({"role": "assistant", "content": yanit})
             add_message_db(st.session_state.current_chat_id, "assistant", yanit)
         except Exception as e:
-            st.error(f"Hata: {str(e)}")
+            st.error(f"Hata: {str(e)} - Model: {selected_model}")
