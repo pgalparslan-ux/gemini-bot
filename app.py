@@ -4,26 +4,15 @@ import sqlite3
 import streamlit as st
 from openai import OpenAI
 
-st.set_page_config(
-    page_title="VorpH AI",
-    page_icon="◼️",
-    layout="centered",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="VorpH AI", page_icon="◼️", layout="centered", initial_sidebar_state="expanded")
 
-# --- SADE TEMİZ KOYU TEMA ---
 st.markdown("""
 <style>
     .stApp { background: #000000 !important; color: #ececec !important; }
     section[data-testid="stSidebar"] { background: #0a0a0a !important; border-right: 1px solid #1a1a1a !important; }
     [data-testid="stChatMessage"] { background: transparent !important; border: none !important; padding: 10px 0 !important; }
-    [data-testid="stChatMessageContent"] { font-size: 16px !important; line-height: 1.6 !important; }
-    .stChatInputContainer {
-        background: #151515 !important; border: 1px solid #222 !important;
-        border-radius: 24px !important; padding: 6px 8px !important;
-    }
+    .stChatInputContainer { background: #151515 !important; border: 1px solid #222 !important; border-radius: 24px !important; }
     .stChatInputContainer textarea { color: white !important; }
-    button { border-radius: 12px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -37,8 +26,6 @@ def init_db():
     c = conn.cursor()
     c.execute("CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY, user_name TEXT, title TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id TEXT, role TEXT, content TEXT)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_chats_user ON chats(user_name)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_msg_chat ON messages(chat_id)")
     conn.commit()
     conn.close()
 
@@ -91,85 +78,40 @@ if "current_chat_id" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- API KEY : GEMINI ÖNCELİKLİ ---
 gemini_key = st.secrets.get("GEMINI_API_KEY", "")
-openrouter_key = st.secrets.get("OPENROUTER_API_KEY", "")
-
-if gemini_key:
-    client = OpenAI(
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-        api_key=gemini_key
-    )
-    kullanilan_api = "gemini"
-elif openrouter_key:
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=openrouter_key
-    )
-    kullanilan_api = "openrouter"
-else:
-    st.error("Secrets içinde GEMINI_API_KEY yok. Manage app > Settings > Secrets kısmına ekle.")
+if not gemini_key:
+    st.error("Secrets icinde GEMINI_API_KEY yok")
     st.stop()
 
-# --- YAN ÇUBUK GERİ GELDİ ---
+client = OpenAI(base_url="https://generativelanguage.googleapis.com/v1beta/openai/", api_key=gemini_key)
+
 personality = "Genel Asistan"
 selected_model = "gemini-2.0-flash"
+chats = get_chats(st.session_state.user_name)
 
 with st.sidebar:
     st.title("VorpH AI")
     st.caption("Profesyonel Asistan")
-
-    isim = st.text_input("İsminiz", value=st.session_state.user_name)
+    isim = st.text_input("Isminiz", value=st.session_state.user_name)
     if isim != st.session_state.user_name:
         st.session_state.user_name = isim
         st.session_state.current_chat_id = None
         st.session_state.messages = []
         st.rerun()
-
     st.markdown("---")
-
-    modlar = [
-        "Genel Asistan",
-        "Yazılım Uzmanı",
-        "Detaylı Uzman",
-        "Resmî"
-    ]
+    modlar = ["Genel Asistan", "Yazilim Uzmami", "Detayli Uzman", "Resmi"]
     personality = st.selectbox("Asistan Modu", modlar)
-
-    if kullanilan_api == "gemini":
-        modeller = [
-            "Hızlı - Gemini 2.0 Flash",
-            "Akıllı - Gemini 2.5 Flash",
-            "Güçlü - Gemini 1.5 Flash"
-        ]
-        model_map = {
-            "Hızlı - Gemini 2.0 Flash": "gemini-2.0-flash",
-            "Akıllı - Gemini 2.5 Flash": "gemini-2.5-flash",
-            "Güçlü - Gemini 1.5 Flash": "gemini-1.5-flash"
-        }
-    else:
-        modeller = [
-            "Hızlı - Gemini Flash",
-            "Dengeli - Auto"
-        ]
-        model_map = {
-            "Hızlı - Gemini Flash": "google/gemini-2.0-flash-001",
-            "Dengeli - Auto": "openrouter/auto"
-        }
-
+    modeller = ["Hizli - Gemini 2.0 Flash", "Akilli - Gemini 2.5 Flash", "Guclu - Gemini 1.5 Flash"]
     model_opt = st.selectbox("Model", modeller)
+    model_map = {"Hizli - Gemini 2.0 Flash": "gemini-2.0-flash", "Akilli - Gemini 2.5 Flash": "gemini-2.5-flash", "Guclu - Gemini 1.5 Flash": "gemini-1.5-flash"}
     selected_model = model_map[model_opt]
-
     st.markdown("---")
-
-    if st.button("➕ Yeni Sohbet", use_container_width=True, type="primary"):
+    if st.button("Yeni Sohbet", use_container_width=True, type="primary"):
         nid = create_chat(st.session_state.user_name)
         st.session_state.current_chat_id = nid
         st.session_state.messages = []
         st.rerun()
-
-    st.markdown("---")
-    st.subheader("Geçmiş Sohbetler")
+    st.subheader("Gecmis Sohbetler")
     chats = get_chats(st.session_state.user_name)
     for cid, title in chats:
         c1, c2 = st.columns([4, 1])
@@ -179,11 +121,10 @@ with st.sidebar:
                 st.session_state.messages = get_messages_db(cid)
                 st.rerun()
         with c2:
-            if st.button("🗑️", key=f"del_{cid}"):
+            if st.button("Sil", key=f"del_{cid}"):
                 delete_chat_db(cid)
-                if st.session_state.current_chat_id == cid:
-                    st.session_state.current_chat_id = None
-                    st.session_state.messages = []
+                st.session_state.current_chat_id = None
+                st.session_state.messages = []
                 st.rerun()
 
 if not st.session_state.current_chat_id:
@@ -191,7 +132,7 @@ if not st.session_state.current_chat_id:
         st.session_state.current_chat_id = chats[0][0]
         st.session_state.messages = get_messages_db(chats[0][0])
     else:
-        nid = create_chat(st.session_state.user_name, "Proje Geliştirmeleri")
+        nid = create_chat(st.session_state.user_name, "Proje Gelistirmeleri")
         st.session_state.current_chat_id = nid
 
 st.title("VorpH AI")
@@ -201,42 +142,28 @@ for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-prompts = {
-    "Genel Asistan": "Sen VorpH adında samimi bir asistansın.",
-    "Yazılım Uzmanı": "Sen VorpH adında kıdemli bir yazılım mimarisin.",
-    "Detaylı Uzman": "Sen VorpH adında detaylı anlatan bir uzmansın.",
-    "Resmî": "Sen VorpH adında resmi bir asistansın."
-}
+prompts = {"Genel Asistan": "Sen VorpH adinda samimi bir asistansin.", "Yazilim Uzmami": "Sen VorpH adinda kidemli bir yazilim mimarisin.", "Detayli Uzman": "Sen VorpH adinda detayli anlatan bir uzmansin.", "Resmi": "Sen VorpH adinda resmi bir asistansin."}
 ad = st.session_state.user_name
-sistem = prompts.get(personality, prompts["Genel Asistan"]) + f" Kullanıcının adı {ad}. Türkçe cevap ver."
+sistem = prompts.get(personality, prompts["Genel Asistan"]) + f" Kullanici {ad}. Turkce cevap ver."
 
 kullanici_girdisi = st.chat_input("Yanıtla...")
 
 if kullanici_girdisi:
     simdi = time.time()
     if st.session_state.get("last_time") and simdi - st.session_state.get("last_time") < 1:
-        st.warning("Biraz yavaş")
+        st.warning("Biraz yavas")
         st.stop()
     st.session_state.last_time = simdi
-
     st.session_state.messages.append({"role": "user", "content": kullanici_girdisi})
     add_message_db(st.session_state.current_chat_id, "user", kullanici_girdisi)
     with st.chat_message("user"):
         st.markdown(kullanici_girdisi)
-
     with st.chat_message("assistant"):
         api_mesajlari = [{"role": "system", "content": sistem}]
         api_mesajlari.extend(st.session_state.messages)
         try:
-            stream = client.chat.completions.create(
-                model=selected_model,
-                messages=api_mesajlari,
-                stream=True,
-                temperature=0.7
-            )
-            yanit = st.write_stream(
-                (p.choices[0].delta.content for p in stream if p.choices[0].delta.content)
-            )
+            stream = client.chat.completions.create(model=selected_model, messages=api_mesajlari, stream=True, temperature=0.7)
+            yanit = st.write_stream((p.choices[0].delta.content for p in stream if p.choices[0].delta.content))
             st.session_state.messages.append({"role": "assistant", "content": yanit})
             add_message_db(st.session_state.current_chat_id, "assistant", yanit)
             st.rerun()
