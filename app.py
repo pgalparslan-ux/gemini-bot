@@ -10,7 +10,6 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- META AI TARZI CSS ---
 st.markdown("""
 <style>
     .stApp { background: #000000 !important; color: #ececec !important; }
@@ -18,61 +17,25 @@ st.markdown("""
     [data-testid="stToolbar"] { display: none !important; }
     section[data-testid="stSidebar"] { background: #0b0b0b !important; border-right: 1px solid #1a1a1a !important; }
     section[data-testid="stSidebar"] * { color: #ececec !important; }
-
-    /* Üst bar - Meta AI gibi */
-    .meta-topbar {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 10px 4px 14px 4px;
-    }
+    .meta-topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 4px 14px 4px; }
     .meta-top-left { display: flex; align-items: center; gap: 14px; }
-    .meta-circle {
-        width: 44px; height: 44px; border-radius: 50%; background: #1a1a1a;
-        display: flex; align-items: center; justify-content: center; font-size: 22px; color: white;
-    }
+    .meta-circle { width: 44px; height: 44px; border-radius: 50%; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 22px; color: white; }
     .meta-title { font-size: 22px; font-weight: 500; color: white; }
-
-    /* Ortadaki Meta logosu - mor mavi degrade */
-    .meta-logo-wrap { text-align: center; margin-top: 110px; margin-bottom: 10px; }
-    .meta-logo {
-        font-size: 88px; line-height: 1;
-        background: linear-gradient(135deg, #ff5ea8 0%, #a855f7 30%, #6366f1 60%, #3b82f6 100%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        filter: drop-shadow(0 0 18px rgba(168, 85, 247, 0.6));
-    }
-    .meta-hello { text-align: center; color: #888; font-size: 17px; margin-top: 12px; }
-
-    /* Mesajlar - Meta AI gibi sade, balon yok */
+    .meta-logo-wrap { text-align: center; margin-top: 60px; margin-bottom: 10px; }
+    .meta-logo { font-size: 88px; line-height: 1; background: linear-gradient(135deg, #ff5ea8 0%, #a855f7 30%, #6366f1 60%, #3b82f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 18px rgba(168, 85, 247, 0.6)); }
+    .meta-hello { text-align: center; color: #aaa; font-size: 18px; margin-top: 12px; }
     .block-container { max-width: 760px !important; padding-top: 10px !important; padding-bottom: 150px !important; }
     [data-testid="stChatMessage"] { background: transparent !important; border: none !important; padding: 12px 0 !important; }
     [data-testid="stChatMessageContent"] { font-size: 17px !important; line-height: 1.65 !important; color: #ececec !important; }
-
-    /* Alt bar - Meta AI gibi gri yuvarlak */
-    .stChatInputContainer {
-        background: #1c1c1e !important; border: none !important;
-        border-radius: 28px !important; padding: 10px 10px 6px 14px !important;
-        box-shadow: none !important;
-    }
+    .stChatInputContainer { background: #1c1c1e !important; border: none !important; border-radius: 28px !important; padding: 10px 10px 6px 14px !important; }
     .stChatInputContainer textarea { background: transparent !important; color: white !important; font-size: 17px !important; }
     .stChatInputContainer textarea::placeholder { color: #888 !important; }
-
-    /* Alt bar altı - + / Aninda / ses görünümü, tek satırda kalır */
-    .meta-bottom-row {
-        display: flex; align-items: center; justify-content: space-between;
-        margin-top: 2px; padding: 0 6px 0 6px;
-    }
-    .meta-plus {
-        width: 36px; height: 36px; border-radius: 50%; border: 1px solid #333;
-        display: flex; align-items: center; justify-content: center; font-size: 22px; color: #ccc;
-    }
+    .meta-bottom-row { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; padding: 0 6px 0 6px; }
+    .meta-plus { width: 36px; height: 36px; border-radius: 50%; border: 1px solid #333; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #ccc; }
     .meta-right { display: flex; align-items: center; gap: 8px; }
-    .meta-aninda {
-        border: 1px solid #333; border-radius: 999px; padding: 7px 16px;
-        color: white; font-size: 15px; background: transparent;
-    }
-    .meta-voice {
-        width: 40px; height: 40px; border-radius: 50%; background: #1d9bf0;
-        display: flex; align-items: center; justify-content: center; font-size: 18px; color: white;
-    }
+    .meta-aninda { border: 1px solid #333; border-radius: 999px; padding: 7px 16px; color: white; font-size: 15px; background: transparent; }
+    .meta-voice { width: 40px; height: 40px; border-radius: 50%; background: #1d9bf0; display: flex; align-items: center; justify-content: center; font-size: 18px; color: white; }
+    .music-box { background: #17171a !important; border: 1px solid #26262b !important; border-radius: 16px !important; padding: 12px !important; }
     button { border-radius: 12px !important; }
     @media (max-width: 768px) {
         .block-container { padding-left: 14px !important; padding-right: 14px !important; }
@@ -138,12 +101,21 @@ def delete_chat_db(chat_id):
 
 init_db()
 
+# İSİMSİZ - varsayılan Hexyy yok
 if "user_name" not in st.session_state:
     st.session_state.user_name = ""
 if "current_chat_id" not in st.session_state:
     st.session_state.current_chat_id = None
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "muzik_acik" not in st.session_state:
+    st.session_state.muzik_acik = False
+if "secili_sarki" not in st.session_state:
+    st.session_state.secili_sarki = "Lo-Fi Chill"
+
+# İsim boşsa veritabanında anonim olarak tut
+efektif_isim = st.session_state.user_name.strip() if st.session_state.user_name else "anonim"
+gorunen_isim = st.session_state.user_name.strip() if st.session_state.user_name else "Misafir"
 
 gemini_key = st.secrets.get("GEMINI_API_KEY", "")
 if not gemini_key:
@@ -155,34 +127,68 @@ client = OpenAI(
     api_key=gemini_key
 )
 
-# TEK MODEL - Gemini 3 Flash
 selected_model = "gemini-3-flash-preview"
 
-# --- YAN ÇUBUK DURUYOR, SİLMEDİM ---
+# --- YAN ÇUBUK ---
 with st.sidebar:
     st.title("VorpH AI")
-    st.caption("Profesyonel Asistan")
-    user_name_input = st.text_input("İsminiz", value=st.session_state.user_name, placeholder="Örn: Ahmet")
+    st.caption("Profesyonel Asistan - İsimsiz Mod")
+
+    user_name_input = st.text_input("İsminiz (zorunlu değil)", value=st.session_state.user_name, placeholder="Boş bırak = Anonim")
     if user_name_input != st.session_state.user_name:
         st.session_state.user_name = user_name_input
         st.session_state.current_chat_id = None
         st.session_state.messages = []
         st.rerun()
+
     if not st.session_state.user_name:
-        st.warning("Sohbet için isminizi girin")
-        st.stop()
+        st.caption("👻 Anonim olarak devam ediyorsun")
+    else:
+        st.caption(f"👋 Merhaba {st.session_state.user_name}")
+
     st.markdown("---")
     asistan_modlari = ["Genel Asistan", "Yazılım Uzmanı", "Detaylı Uzman", "Resmî"]
     personality = st.selectbox("Asistan Modu", asistan_modlari)
     st.caption("Model: Gemini 3 Flash")
+
+    # --- YENİ ÖZELLİK: VORPH MÜZİK ---
+    st.markdown("---")
+    st.subheader("🎵 VorpH Müzik")
+    st.caption("Sadece bu sitede çalar")
+
+    sarki_listesi = {
+        "Lo-Fi Chill": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+        "Gece Sürüşü": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+        "Odaklanma": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+        "Yağmur Hissi": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+        "Enerji": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+        "Sakin Akşam": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
+    }
+
+    secim = st.selectbox("Şarkı Seç", list(sarki_listesi.keys()), index=list(sarki_listesi.keys()).index(st.session_state.secili_sarki) if st.session_state.secili_sarki in sarki_listesi else 0)
+    st.session_state.secili_sarki = secim
+
+    muzik_acik = st.toggle("🎧 Müziği Aç", value=st.session_state.muzik_acik)
+    st.session_state.muzik_acik = muzik_acik
+
+    if st.session_state.muzik_acik:
+        st.markdown(f'<div class="music-box">🎶 Şimdi çalıyor:<br><b>{st.session_state.secili_sarki}</b><br><span style="font-size:12px;color:#888;">Sadece VorpH\'da</span></div>', unsafe_allow_html=True)
+        st.audio(sarki_listesi[st.session_state.secili_sarki], format="audio/mp3", autoplay=True)
+        if st.button("⏹️ Durdur", use_container_width=True):
+            st.session_state.muzik_acik = False
+            st.rerun()
+    else:
+        st.caption("Müzik kapalı. Açmak için yukarıdaki tike bas.")
+
+    st.markdown("---")
     if st.button("Yeni Sohbet", use_container_width=True, type="primary"):
-        new_id = create_chat(st.session_state.user_name)
+        new_id = create_chat(efektif_isim)
         st.session_state.current_chat_id = new_id
         st.session_state.messages = []
         st.rerun()
     st.markdown("---")
     st.subheader("Geçmiş Sohbetler")
-    chats = get_chats(st.session_state.user_name)
+    chats = get_chats(efektif_isim)
     for cid, title in chats:
         col1, col2 = st.columns([4, 1])
         with col1:
@@ -203,10 +209,9 @@ if not st.session_state.current_chat_id:
         st.session_state.current_chat_id = chats[0][0]
         st.session_state.messages = get_messages_db(chats[0][0])
     else:
-        new_id = create_chat(st.session_state.user_name)
+        new_id = create_chat(efektif_isim)
         st.session_state.current_chat_id = new_id
 
-# --- ÜST BAR - Meta AI gibi ---
 st.markdown("""
 <div class="meta-topbar">
     <div class="meta-top-left">
@@ -217,7 +222,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# --- MESAJLAR / BOŞ EKRAN LOGOSU ---
 if not st.session_state.messages:
     st.markdown("""
     <div class="meta-logo-wrap">
@@ -237,12 +241,10 @@ prompts = {
     "Resmî": "Sen VorpH adında resmi bir asistansın."
 }
 
-ad = st.session_state.user_name
-sistem_talimati = prompts[personality] + f" Kullanıcının adı {ad}. Türkçe cevap ver."
+sistem_talimati = prompts[personality] + f" Kullanıcı anonim, ismi {gorunen_isim}. Türkçe cevap ver."
 
 kullanici_girdisi = st.chat_input("VorpH'a sor...")
 
-# Meta AI alt bar görünümü - sadece görüntü, butonlar input'u bozmaz
 st.markdown("""
 <div class="meta-bottom-row">
     <div class="meta-plus">+</div>
