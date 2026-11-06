@@ -6,12 +6,11 @@ from openai import OpenAI
 
 st.set_page_config(
     page_title="VorpH AI",
-    page_icon="Vorph",
+    page_icon="VorpH",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- FOTOĞRAFTAKİ ARAYÜZ CSS ---
 st.markdown("""
 <style>
     .stApp { background: #000000 !important; color: #ececec !important; }
@@ -124,6 +123,11 @@ client = OpenAI(
     api_key=gemini_key
 )
 
+# --- VARSAYILAN DEĞERLER - else kullanmadan düzeltildi ---
+personality = "Genel Asistan"
+selected_model = "gemini-2.0-flash"
+chats = get_chats(st.session_state.user_name)
+
 # --- SIDEBAR ---
 with st.sidebar:
     st.markdown("### VorpH AI")
@@ -170,10 +174,6 @@ with st.sidebar:
                 st.session_state.current_chat_id = None
                 st.session_state.messages = []
                 st.rerun()
-else:
-    personality = "Genel Asistan"
-    selected_model = "gemini-2.0-flash"
-    chats = get_chats(st.session_state.user_name)
 
 if not st.session_state.current_chat_id:
     if chats:
