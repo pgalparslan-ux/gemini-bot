@@ -90,31 +90,3 @@ def get_messages_db(chat_id):
     return out
 
 def add_message_db(chat_id, role, content):
-    conn = get_conn()
-    conn.execute("INSERT INTO messages (chat_id, role, content) VALUES (?, ?, ?)", [chat_id, role, content])
-    if role == "user":
-        kisa = content[:30]
-        conn.execute("UPDATE chats SET title=? WHERE id=? AND title='Yeni Sohbet'", [kisa, chat_id])
-    conn.commit()
-    conn.close()
-
-def delete_chat_db(chat_id):
-    conn = get_conn()
-    conn.execute("DELETE FROM messages WHERE chat_id=?", [chat_id])
-    conn.execute("DELETE FROM chats WHERE id=?", [chat_id])
-    conn.commit()
-    conn.close()
-
-init_db()
-
-if "user_name" not in st.session_state:
-    st.session_state.user_name = ""
-if "current_chat_id" not in st.session_state:
-    st.session_state.current_chat_id = None
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "muzik_acik" not in st.session_state:
-    st.session_state.muzik_acik = False
-if "secili_sarki" not in st.session_state:
-    st.session_state.secili_sarki = "Lo-Fi Chill"
-if "ozel_link" not in st.session_state
