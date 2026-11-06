@@ -42,7 +42,37 @@ st.markdown("""
     }
     .meta-hello { text-align: center; color: #aaa; font-size: 20px; margin-top: 12px; }
     .block-container { max-width: 760px !important; padding-top: 20px !important; padding-bottom: 120px !important; }
-    .stChatInputContainer { background: #1c1c1e !important; border-radius: 28px !important; }
+
+    /* --- KONUSMA CUBUGU - Meta AI rengi, VorpH hali --- */
+    /* Dis kapsayici */
+    [data-testid="stChatInput"] {
+        background: #262626 !important;
+        border: none !important;
+        border-radius: 28px !important;
+        padding: 6px 6px 6px 16px !important;
+    }
+    /* Streamlit'in kendi containeri */
+    .stChatInputContainer {
+        background: #262626 !important;
+        border: none !important;
+        border-radius: 28px !important;
+        padding: 6px 6px 6px 16px !important;
+    }
+    .stChatInputContainer textarea {
+        background: transparent !important;
+        color: white !important;
+        font-size: 17px !important;
+    }
+    .stChatInputContainer textarea::placeholder {
+        color: #8a8a8a !important;
+    }
+    /* Gonder butonu - gri yuvarlak */
+    [data-testid="stChatInput"] button {
+        background: #3a3a3a !important;
+        color: white !important;
+        border-radius: 50% !important;
+        border: none !important;
+    }
     .music-box { background: #17171a !important; border-radius: 16px !important; padding: 12px !important; }
     .model-kucuk { font-size: 11px !important; color: #666 !important; text-align: center !important; margin-top: 30px !important; }
 </style>
@@ -138,7 +168,7 @@ if "muzik_acik" not in st.session_state:
 if "secili_sarki" not in st.session_state:
     st.session_state.secili_sarki = "Lo-Fi Chill"
 
-# FIX: uzun tek satir yok, kisa if else
+# FIX: uzun tek satir yok
 efektif_isim = "anonim"
 gorunen_isim = "Misafir"
 if st.session_state.user_name:
