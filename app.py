@@ -10,16 +10,73 @@ st.set_page_config(
     layout="centered"
 )
 
+# --- META AI TARZI CSS ---
 st.markdown("""
 <style>
-    .stApp { background: #0a0a0a !important; color: #ececec !important; }
-    section[data-testid="stSidebar"] { background: #050505 !important; border-right: 1px solid #1f1f1f !important; }
-    [data-testid="stChatMessage"] { background: transparent !important; border: none !important; padding: 1rem 0 !important; }
-    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) div[data-testid="stChatMessageContent"] {
-        background: #1e1e1e !important; border-radius: 18px 18px 4px 18px !important; padding: 12px 16px !important; border: 1px solid #2a2a2a !important;
+    .stApp { background: #000000 !important; color: #ececec !important; }
+    header[data-testid="stHeader"] { background: #000000 !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+    section[data-testid="stSidebar"] { background: #0b0b0b !important; border-right: 1px solid #1a1a1a !important; }
+    section[data-testid="stSidebar"] * { color: #ececec !important; }
+
+    /* Üst bar - Meta AI gibi */
+    .meta-topbar {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 4px 14px 4px;
     }
-    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) div[data-testid="stChatMessageContent"] {
-        background: #111111 !important; border-radius: 18px 18px 18px 4px !important; padding: 12px 16px !important; border: 1px solid #222 !important;
+    .meta-top-left { display: flex; align-items: center; gap: 14px; }
+    .meta-circle {
+        width: 44px; height: 44px; border-radius: 50%; background: #1a1a1a;
+        display: flex; align-items: center; justify-content: center; font-size: 22px; color: white;
+    }
+    .meta-title { font-size: 22px; font-weight: 500; color: white; }
+
+    /* Ortadaki Meta logosu - mor mavi degrade */
+    .meta-logo-wrap { text-align: center; margin-top: 110px; margin-bottom: 10px; }
+    .meta-logo {
+        font-size: 88px; line-height: 1;
+        background: linear-gradient(135deg, #ff5ea8 0%, #a855f7 30%, #6366f1 60%, #3b82f6 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 0 18px rgba(168, 85, 247, 0.6));
+    }
+    .meta-hello { text-align: center; color: #888; font-size: 17px; margin-top: 12px; }
+
+    /* Mesajlar - Meta AI gibi sade, balon yok */
+    .block-container { max-width: 760px !important; padding-top: 10px !important; padding-bottom: 150px !important; }
+    [data-testid="stChatMessage"] { background: transparent !important; border: none !important; padding: 12px 0 !important; }
+    [data-testid="stChatMessageContent"] { font-size: 17px !important; line-height: 1.65 !important; color: #ececec !important; }
+
+    /* Alt bar - Meta AI gibi gri yuvarlak */
+    .stChatInputContainer {
+        background: #1c1c1e !important; border: none !important;
+        border-radius: 28px !important; padding: 10px 10px 6px 14px !important;
+        box-shadow: none !important;
+    }
+    .stChatInputContainer textarea { background: transparent !important; color: white !important; font-size: 17px !important; }
+    .stChatInputContainer textarea::placeholder { color: #888 !important; }
+
+    /* Alt bar altı - + / Aninda / ses görünümü, tek satırda kalır */
+    .meta-bottom-row {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-top: 2px; padding: 0 6px 0 6px;
+    }
+    .meta-plus {
+        width: 36px; height: 36px; border-radius: 50%; border: 1px solid #333;
+        display: flex; align-items: center; justify-content: center; font-size: 22px; color: #ccc;
+    }
+    .meta-right { display: flex; align-items: center; gap: 8px; }
+    .meta-aninda {
+        border: 1px solid #333; border-radius: 999px; padding: 7px 16px;
+        color: white; font-size: 15px; background: transparent;
+    }
+    .meta-voice {
+        width: 40px; height: 40px; border-radius: 50%; background: #1d9bf0;
+        display: flex; align-items: center; justify-content: center; font-size: 18px; color: white;
+    }
+    button { border-radius: 12px !important; }
+    @media (max-width: 768px) {
+        .block-container { padding-left: 14px !important; padding-right: 14px !important; }
+        .meta-logo { font-size: 72px; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -98,9 +155,10 @@ client = OpenAI(
     api_key=gemini_key
 )
 
-# TEK MODEL - Gemini 3 Flash, secim yok
+# TEK MODEL - Gemini 3 Flash
 selected_model = "gemini-3-flash-preview"
 
+# --- YAN ÇUBUK DURUYOR, SİLMEDİM ---
 with st.sidebar:
     st.title("VorpH AI")
     st.caption("Profesyonel Asistan")
@@ -148,11 +206,29 @@ if not st.session_state.current_chat_id:
         new_id = create_chat(st.session_state.user_name)
         st.session_state.current_chat_id = new_id
 
-st.title("VorpH AI")
+# --- ÜST BAR - Meta AI gibi ---
+st.markdown("""
+<div class="meta-topbar">
+    <div class="meta-top-left">
+        <div class="meta-circle">≡</div>
+        <div class="meta-title">VorpH AI</div>
+    </div>
+    <div class="meta-circle">👓</div>
+</div>
+""", unsafe_allow_html=True)
 
-for m in st.session_state.messages:
-    with st.chat_message(m["role"]):
-        st.markdown(m["content"])
+# --- MESAJLAR / BOŞ EKRAN LOGOSU ---
+if not st.session_state.messages:
+    st.markdown("""
+    <div class="meta-logo-wrap">
+        <div class="meta-logo">✦</div>
+        <div class="meta-hello">VorpH'a ne soracaksın?</div>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    for m in st.session_state.messages:
+        with st.chat_message(m["role"]):
+            st.markdown(m["content"])
 
 prompts = {
     "Genel Asistan": "Sen VorpH adında samimi bir asistansın.",
@@ -164,7 +240,18 @@ prompts = {
 ad = st.session_state.user_name
 sistem_talimati = prompts[personality] + f" Kullanıcının adı {ad}. Türkçe cevap ver."
 
-kullanici_girdisi = st.chat_input("Bir şey yazın...")
+kullanici_girdisi = st.chat_input("VorpH'a sor...")
+
+# Meta AI alt bar görünümü - sadece görüntü, butonlar input'u bozmaz
+st.markdown("""
+<div class="meta-bottom-row">
+    <div class="meta-plus">+</div>
+    <div class="meta-right">
+        <div class="meta-aninda">Anında</div>
+        <div class="meta-voice">|||</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 if kullanici_girdisi:
     simdi = time.time()
