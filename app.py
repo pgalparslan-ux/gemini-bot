@@ -10,22 +10,23 @@ st.set_page_config(
     layout="centered"
 )
 
+# --- DÜZELTME: Gerçek yan çubuk butonunu gizleme artık ---
 st.markdown("""
 <style>
     .stApp { background: #000000 !important; color: #ececec !important; }
-    header[data-testid="stHeader"] { background: transparent !important; }
-    [data-testid="stToolbar"] { display: none !important; }
+    /* Header'ı gizleme, yoksa yan çubuk butonu da gidiyor */
+    header[data-testid="stHeader"] { background: #000000 !important; }
+    [data-testid="stToolbar"] { display: flex !important; }
+    /* Gerçek yan çubuk açma butonu - görünür yap */
+    [data-testid="collapsedControl"] { display: flex !important; color: white !important; background: transparent !important; }
+    [data-testid="collapsedControl"] svg { fill: white !important; color: white !important; }
     section[data-testid="stSidebar"] { background: #0b0b0b !important; border-right: 1px solid #1a1a1a !important; }
     section[data-testid="stSidebar"] * { color: #ececec !important; }
 
-    /* ÜST BAR - artık kesilmiyor, aşağı aldım */
-    .block-container { max-width: 760px !important; padding-top: 20px !important; padding-bottom: 120px !important; }
     .meta-topbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 4px 18px 4px; margin-top: 8px; }
-    .meta-top-left { display: flex; align-items: center; gap: 14px; }
-    .meta-circle { width: 44px; height: 44px; border-radius: 50%; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 22px; color: white; flex-shrink: 0; }
     .meta-title { font-size: 22px; font-weight: 500; color: white; line-height: 1; }
+    .meta-circle { width: 44px; height: 44px; border-radius: 50%; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 22px; color: white; flex-shrink: 0; }
 
-    /* ORTA LOGO - artık yıldız değil ŞİMŞEK, VorpH = Flash */
     .meta-logo-wrap { text-align: center; margin-top: 70px; margin-bottom: 10px; }
     .meta-flash {
         font-size: 110px; line-height: 1;
@@ -36,10 +37,9 @@ st.markdown("""
     .meta-hello { text-align: center; color: #aaa; font-size: 20px; margin-top: 14px; font-weight: 500; }
     .meta-sub { text-align: center; color: #666; font-size: 14px; margin-top: 6px; }
 
+    .block-container { max-width: 760px !important; padding-top: 20px !important; padding-bottom: 120px !important; }
     [data-testid="stChatMessage"] { background: transparent !important; border: none !important; padding: 12px 0 !important; }
     [data-testid="stChatMessageContent"] { font-size: 17px !important; line-height: 1.65 !important; color: #ececec !important; }
-
-    /* ALT BAR - tek bar, Meta AI gibi */
     .stChatInputContainer { background: #1c1c1e !important; border: none !important; border-radius: 28px !important; padding: 10px 10px 10px 14px !important; }
     .stChatInputContainer textarea { background: transparent !important; color: white !important; font-size: 17px !important; }
     .stChatInputContainer textarea::placeholder { color: #888 !important; }
@@ -207,12 +207,10 @@ if not st.session_state.current_chat_id:
         new_id = create_chat(efektif_isim)
         st.session_state.current_chat_id = new_id
 
+# ÜST BAR - sahte hamburger yok, gerçek Streamlit butonu sol üstte duruyor
 st.markdown("""
 <div class="meta-topbar">
-    <div class="meta-top-left">
-        <div class="meta-circle">≡</div>
-        <div class="meta-title">VorpH AI</div>
-    </div>
+    <div class="meta-title">⚡ VorpH AI</div>
     <div class="meta-circle">👓</div>
 </div>
 """, unsafe_allow_html=True)
