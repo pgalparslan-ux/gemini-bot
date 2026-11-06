@@ -43,36 +43,68 @@ st.markdown("""
     .meta-hello { text-align: center; color: #aaa; font-size: 20px; margin-top: 12px; }
     .block-container { max-width: 760px !important; padding-top: 20px !important; padding-bottom: 120px !important; }
 
-    /* --- KONUSMA CUBUGU - Meta AI rengi, VorpH hali --- */
-    /* Dis kapsayici */
+    /* --- 2 IKONU KALDIR --- */
+    [data-testid="stChatMessageAvatar"] { display: none !important; }
+    [data-testid="stChatMessageAvatarUser"] { display: none !important; }
+    [data-testid="stChatMessageAvatarAssistant"] { display: none !important; }
+    [data-testid="stChatMessage"] > div:first-child { display: none !important; }
+    /* Mesaj icerigi sola yaslansin, ikon boslugu kalmasin */
+    [data-testid="stChatMessageContent"] { margin-left: 0px !important; padding-left: 0px !important; }
+
+    /* --- KONUSMA CUBUGU - KIRMIZI CERCEVE KAPALI --- */
     [data-testid="stChatInput"] {
         background: #262626 !important;
         border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
         border-radius: 28px !important;
         padding: 6px 6px 6px 16px !important;
     }
-    /* Streamlit'in kendi containeri */
     .stChatInputContainer {
         background: #262626 !important;
         border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
         border-radius: 28px !important;
         padding: 6px 6px 6px 16px !important;
+    }
+    /* Tiklayinca da kirmizi / mavi cerceve cikmasin */
+    [data-testid="stChatInput"]:focus,
+    [data-testid="stChatInput"]:focus-within,
+    [data-testid="stChatInput"]:focus-visible,
+    .stChatInputContainer:focus,
+    .stChatInputContainer:focus-within,
+    .stChatInputContainer:focus-visible {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
     }
     .stChatInputContainer textarea {
         background: transparent !important;
         color: white !important;
         font-size: 17px !important;
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    .stChatInputContainer textarea:focus {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
     }
     .stChatInputContainer textarea::placeholder {
         color: #8a8a8a !important;
     }
-    /* Gonder butonu - gri yuvarlak */
     [data-testid="stChatInput"] button {
         background: #3a3a3a !important;
         color: white !important;
         border-radius: 50% !important;
         border: none !important;
     }
+    /* Genel focus kirmizisini da kapat */
+    *:focus { outline: none !important; box-shadow: none !important; }
+    *:focus-visible { outline: none !important; box-shadow: none !important; }
+
     .music-box { background: #17171a !important; border-radius: 16px !important; padding: 12px !important; }
     .model-kucuk { font-size: 11px !important; color: #666 !important; text-align: center !important; margin-top: 30px !important; }
 </style>
@@ -168,7 +200,6 @@ if "muzik_acik" not in st.session_state:
 if "secili_sarki" not in st.session_state:
     st.session_state.secili_sarki = "Lo-Fi Chill"
 
-# FIX: uzun tek satir yok
 efektif_isim = "anonim"
 gorunen_isim = "Misafir"
 if st.session_state.user_name:
@@ -211,116 +242,4 @@ with st.sidebar:
     personality = st.selectbox("Asistan Modu", asistan_modlari)
     st.markdown("---")
     st.subheader("VorpH Muzik")
-    st.caption("Sadece bu sitede calar")
-    sarki_listesi = {
-        "Lo-Fi Chill": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-        "Gece Surusu": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-        "Odaklanma": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-        "Yagmur Hissi": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
-        "Enerji": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
-        "Sakin Aksam": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
-    }
-    sarki_isimleri = list(sarki_listesi.keys())
-    secim = st.selectbox("Sarki Sec", sarki_isimleri)
-    st.session_state.secili_sarki = secim
-    muzik_acik = st.toggle("Muzigi Ac", value=st.session_state.muzik_acik)
-    st.session_state.muzik_acik = muzik_acik
-    if st.session_state.muzik_acik:
-        st.markdown('<div class="music-box">Simdi caliyor</div>', unsafe_allow_html=True)
-        st.markdown(st.session_state.secili_sarki)
-        st.audio(sarki_listesi[st.session_state.secili_sarki], format="audio/mp3", autoplay=True)
-        if st.button("Durdur", use_container_width=True):
-            st.session_state.muzik_acik = False
-            st.rerun()
-    st.markdown("---")
-    if st.button("Yeni Sohbet", use_container_width=True, type="primary"):
-        new_id = create_chat(efektif_isim)
-        st.session_state.current_chat_id = new_id
-        st.session_state.messages = []
-        st.rerun()
-    st.markdown("---")
-    st.subheader("Gecmis Sohbetler")
-    chats = get_chats(efektif_isim)
-    for cid, title in chats:
-        col1, col2 = st.columns([4, 1])
-        with col1:
-            if st.button(title, key=f"chat_{cid}", use_container_width=True):
-                st.session_state.current_chat_id = cid
-                st.session_state.messages = get_messages_db(cid)
-                st.rerun()
-        with col2:
-            if st.button("SIL", key=f"del_{cid}"):
-                delete_chat_db(cid)
-                if st.session_state.current_chat_id == cid:
-                    st.session_state.current_chat_id = None
-                    st.session_state.messages = []
-                st.rerun()
-    st.markdown('<div class="model-kucuk">Gemini 3 Flash</div>', unsafe_allow_html=True)
-
-if not st.session_state.current_chat_id:
-    if chats:
-        st.session_state.current_chat_id = chats[0][0]
-        st.session_state.messages = get_messages_db(chats[0][0])
-    else:
-        new_id = create_chat(efektif_isim)
-        st.session_state.current_chat_id = new_id
-
-st.markdown("""
-<div class="meta-topbar">
-    <div class="meta-title">VorpH AI</div>
-    <div class="meta-circle">O</div>
-</div>
-""", unsafe_allow_html=True)
-
-if not st.session_state.messages:
-    st.markdown("""
-    <div class="meta-logo-wrap">
-        <div class="meta-flash">⚡</div>
-        <div class="meta-hello">VorpH'a ne soracaksin?</div>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    for m in st.session_state.messages:
-        with st.chat_message(m["role"]):
-            st.markdown(m["content"])
-
-prompts = {
-    "Genel Asistan": "Sen VorpH adinda samimi bir asistansin.",
-    "Yazilim Uzmami": "Sen VorpH adinda kidemli bir yazilim mimarisin.",
-    "Detayli Uzman": "Sen VorpH adinda detayli anlatan bir uzmansin.",
-    "Resmi": "Sen VorpH adinda resmi bir asistansin."
-}
-
-sistem_talimati = prompts[personality] + " Turkce cevap ver."
-
-kullanici_girdisi = st.chat_input("VorpH'a sor...")
-
-if kullanici_girdisi:
-    simdi = time.time()
-    if st.session_state.get("last_time"):
-        fark = simdi - st.session_state.get("last_time")
-        if fark < 1:
-            st.warning("Biraz yavas")
-            st.stop()
-    st.session_state.last_time = simdi
-    st.session_state.messages.append({"role": "user", "content": kullanici_girdisi})
-    add_message_db(st.session_state.current_chat_id, "user", kullanici_girdisi)
-    with st.chat_message("user"):
-        st.markdown(kullanici_girdisi)
-    with st.chat_message("assistant"):
-        api_mesajlari = [{"role": "system", "content": sistem_talimati}]
-        api_mesajlari.extend(st.session_state.messages)
-        try:
-            stream = client.chat.completions.create(
-                model=selected_model,
-                messages=api_mesajlari,
-                stream=True,
-                temperature=0.7
-            )
-            yanit = st.write_stream(
-                (p.choices[0].delta.content for p in stream if p.choices[0].delta.content)
-            )
-            st.session_state.messages.append({"role": "assistant", "content": yanit})
-            add_message_db(st.session_state.current_chat_id, "assistant", yanit)
-        except Exception as e:
-            st.error(f"Hata: {str(e)}")
+    st.caption("Sadece bu sitede calar
