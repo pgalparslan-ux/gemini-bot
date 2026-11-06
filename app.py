@@ -90,3 +90,205 @@ def get_messages_db(chat_id):
     return out
 
 def add_message_db(chat_id, role, content):
+    conn = get_conn()
+    conn.execute("INSERT INTO messages (chat_id, role, content) VALUES (?, ?, ?)", [chat_id, role, content])
+    if role == "user":
+        kisa = content[:30]
+        conn.execute("UPDATE chats SET title=? WHERE id=? AND title='Yeni Sohbet'", [kisa, chat_id])
+    conn.commit()
+    conn.close()
+
+def delete_chat_db(chat_id):
+    conn = get_conn()
+    conn.execute("DELETE FROM messages WHERE chat_id=?", [chat_id])
+    conn.execute("DELETE FROM chats WHERE id=?", [chat_id])
+    conn.commit()
+    conn.close()
+
+init_db()
+
+st.session_state.setdefault("user_name", "")
+st.session_state.setdefault("current_chat_id", None)
+st.session_state.setdefault("messages", [])
+st.session_state.setdefault("muzik_acik", False)
+st.session_state.setdefault("secili_sarki", "Lo-Fi Chill")
+st.session_state.setdefault("ozel_link", "")
+st.session_state.setdefault("ozel_caliyor", False)
+
+efektif_isim = "anonim"
+if st.session_state.user_name:
+    if st.session_state.user_name.strip() != "":
+        efektif_isim = st.session_state.user_name.strip()
+
+gemini_key = st.secrets.get("GEMINI_API_KEY", "")
+if not gemini_key:
+    st.error("Secrets içinde GEMINI_API_KEY yok")
+    st.stop()
+
+base1 = "https://generativelanguage."
+base2 = "googleapis.com/v1beta/openai/"
+base_url = base1 + base2
+client = OpenAI(base_url=base_url, api_key=gemini_key)
+selected_model = "gemini-3-flash-preview"
+
+with st.sidebar:
+    st.title("⚡ VorpH AI")
+    st.caption("Profesyonel Asistan")
+    u_in = st.text_input("İsminiz", value=st.session_state.user_name, placeholder="Boş bırak = Anonim")
+    if u_in != st.session_state.user_name:
+        st.session_state.user_name = u_in
+        st.session_state.current_chat_id = None
+        st.session_state.messages = []
+        st.rerun()
+    if st.session_state.user_name == "":
+        st.caption("Anonim devam ediyorsun")
+    else:
+        st.caption("Merhaba")
+        st.caption(st.session_state.user_name)
+    st.markdown("---")
+    modlar = ["Genel Asistan", "Yazılım Uzmanı", "Detaylı Uzman", "Resmî"]
+    personality = st.selectbox("Asistan Modu", modlar)
+    st.markdown("---")
+    st.subheader("VorpH Müzik")
+    st.caption("Müzik")
+    s1 = "https://www.soundhelix.com/"
+    s2 = "examples/mp3/SoundHelix-Song-"
+    sarki_listesi = {
+        "Lo-Fi Chill": s1 + s2 + "1.mp3",
+        "Gece Sürüşü": s1 + s2 + "2.mp3",
+        "Odaklanma": s1 + s2 + "3.mp3",
+        "Yağmur Hissi": s1 + s2 + "4.mp3",
+        "Enerji": s1 + s2 + "5.mp3",
+        "Sakin Akşam": s1 + s2 + "6.mp3",
+    }
+    sarki_isimleri = list(sarki_listesi.keys())
+    secim = st.selectbox("Şarkı Seç", sarki_isimleri)
+    st.session_state.secili_sarki = secim
+    muzik_acik = st.toggle("Müziği Aç", value=st.session_state.muzik_acik)
+    st.session_state.muzik_acik = muzik_acik
+    if st.session_state.muzik_acik:
+        st.markdown('<div class="music-box">Çalıyor</div>', unsafe_allow_html=True)
+        st.markdown(st.session_state.secili_sarki)
+        link = sarki_listesi[st.session_state.secili_sarki]
+        st.audio(link, format="audio/mp3", autoplay=True)
+        if st.button("Durdur", use_container_width=True):
+            st.session_state.muzik_acik = False
+            st.rerun()
+    st.markdown("---")
+    st.subheader("Link ile Çal")
+    st.caption("YouTube veya MP3 linki yapıştır")
+    link_girdi = st.text_input("Şarkı Linki", value=st.session_state.ozel_link, placeholder="YouTube linki buraya...")
+    if link_girdi != st.session_state.ozel_link:
+        st.session_state.ozel_link = link_girdi
+    if st.button("Çalmaya Başla", use_container_width=True, type="primary"):
+        if st.session_state.ozel_link.strip() == "":
+            st.warning("Önce bir link yaz")
+        else:
+            st.session_state.ozel_caliyor = True
+            st.session_state.muzik_acik = False
+            st.rerun()
+    if st.session_state.ozel_caliyor:
+        if st.session_state.ozel_link.strip() != "":
+            st.markdown('<div class="music-box">Linkten Çalıyor</div>', unsafe_allow_html=True)
+            st.caption(st.session_state.ozel_link)
+            l = st.session_state.ozel_link.strip()
+            if "youtube.com" in l or "youtu.be" in l:
+                st.video(l)
+            elif l.endswith(".mp3"):
+                st.audio(l, format="audio/mp3", autoplay=True)
+            else:
+                st.video(l)
+            if st.button("Link Şarkıyı Durdur", use_container_width=True):
+                st.session_state.ozel_caliyor = False
+                st.session_state.ozel_link = ""
+                st.rerun()
+    st.markdown("---")
+    if st.button("Yeni Sohbet", use_container_width=True, type="primary"):
+        nid = create_chat(efektif_isim)
+        st.session_state.current_chat_id = nid
+        st.session_state.messages = []
+        st.rerun()
+    st.markdown("---")
+    st.subheader("Geçmiş Sohbetler")
+    chats = get_chats(efektif_isim)
+    for cid, title in chats:
+        c1, c2 = st.columns([4, 1])
+        with c1:
+            if st.button(title, key=f"chat_{cid}", use_container_width=True):
+                st.session_state.current_chat_id = cid
+                st.session_state.messages = get_messages_db(cid)
+                st.rerun()
+        with c2:
+            if st.button("SİL", key=f"del_{cid}"):
+                delete_chat_db(cid)
+                if st.session_state.current_chat_id == cid:
+                    st.session_state.current_chat_id = None
+                    st.session_state.messages = []
+                st.rerun()
+    st.markdown('<div class="model-kucuk">Gemini 3 Flash</div>', unsafe_allow_html=True)
+    st.markdown('<div class="telif">Tüm telif haklarının sahibi YouTube\'dir.</div>', unsafe_allow_html=True)
+
+if not st.session_state.current_chat_id:
+    if chats:
+        st.session_state.current_chat_id = chats[0][0]
+        st.session_state.messages = get_messages_db(chats[0][0])
+    else:
+        nid = create_chat(efektif_isim)
+        st.session_state.current_chat_id = nid
+
+st.markdown("""
+<div class="meta-topbar">
+    <div class="meta-title">VorpH AI</div>
+    <div class="meta-circle">O</div>
+</div>
+""", unsafe_allow_html=True)
+
+if not st.session_state.messages:
+    st.markdown("""
+    <div class="meta-logo-wrap">
+        <div class="meta-flash">⚡</div>
+        <div class="meta-hello">VorpH'a ne soracaksın?</div>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    for m in st.session_state.messages:
+        with st.chat_message(m["role"]):
+            st.markdown(m["content"])
+
+p1 = "Sen VorpH'sun."
+p2 = "Sen yazılımcısın."
+p3 = "Sen detaycısın."
+p4 = "Sen resmîsin."
+prompts = {
+    "Genel Asistan": p1,
+    "Yazılım Uzmanı": p2,
+    "Detaylı Uzman": p3,
+    "Resmî": p4,
+}
+sistem_talimati = prompts[personality]
+sistem_talimati += " Türkçe cevap ver."
+
+kullanici_girdisi = st.chat_input("VorpH'a sor...")
+
+if kullanici_girdisi:
+    simdi = time.time()
+    if st.session_state.get("last_time"):
+        fark = simdi - st.session_state.get("last_time")
+        if fark < 1:
+            st.warning("Biraz yavaş")
+            st.stop()
+    st.session_state.last_time = simdi
+    st.session_state.messages.append({"role": "user", "content": kullanici_girdisi})
+    add_message_db(st.session_state.current_chat_id, "user", kullanici_girdisi)
+    with st.chat_message("user"):
+        st.markdown(kullanici_girdisi)
+    with st.chat_message("assistant"):
+        api_mesajlari = [{"role": "system", "content": sistem_talimati}]
+        api_mesajlari.extend(st.session_state.messages)
+        try:
+            stream = client.chat.completions.create(model=selected_model, messages=api_mesajlari, stream=True, temperature=0.7)
+            yanit = st.write_stream((p.choices[0].delta.content for p in stream if p.choices[0].delta.content))
+            st.session_state.messages.append({"role": "assistant", "content": yanit})
+            add_message_db(st.session_state.current_chat_id, "assistant", yanit)
+        except Exception as e:
+            st.error(f"Hata: {str(e)}")
