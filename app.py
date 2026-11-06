@@ -186,4 +186,75 @@ with st.sidebar:
   st.rerun()
  st.markdown('---')
  st.subheader('Gecmis Sohbetler')
- chats = get_chats(efektif_isim
+ chats = get_chats(efektif_isim)
+ for cid, title in chats:
+  c1, c2 = st.columns([4, 1])
+  with c1:
+   if st.button(title, key=f'chat_{cid}', use_container_width=True):
+    st.session_state.current_chat_id = cid
+    st.session_state.messages = get_messages_db(cid)
+    st.rerun()
+  with c2:
+   if st.button('SIL', key=f'del_{cid}'):
+    delete_chat_db(cid)
+    if st.session_state.current_chat_id == cid:
+     st.session_state.current_chat_id = None
+     st.session_state.messages = []
+    st.rerun()
+ st.markdown('Gemini 3 Flash')
+
+if not st.session_state.current_chat_id:
+ if chats:
+  st.session_state.current_chat_id = chats[0][0]
+  st.session_state.messages = get_messages_db(chats[0][0])
+ else:
+  nid = create_chat(efektif_isim)
+  st.session_state.current_chat_id = nid
+
+st.markdown('VorpH AI')
+
+if not st.session_state.messages:
+ st.markdown('⚡')
+ st.markdown("VorpH'a ne soracaksin?")
+else:
+ for m in st.session_state.messages:
+  with st.chat_message(m['role']):
+   st.markdown(m['content'])
+
+p1 = 'Sen VorpHsun.'
+p2 = 'Sen yazilimcisin.'
+p3 = 'Sen detaycisin.'
+p4 = 'Sen resmisin.'
+prompts = {
+ 'Genel Asistan': p1,
+ 'Yazilim Uzmami': p2,
+ 'Detayli Uzman': p3,
+ 'Resmi': p4,
+}
+sistem_talimati = prompts[personality]
+sistem_talimati += ' Turkce cevap ver.'
+
+kullanici_girdisi = st.chat_input("VorpH'a sor...")
+
+if kullanici_girdisi:
+ simdi = time.time()
+ if st.session_state.get('last_time'):
+  fark = simdi - st.session_state.get('last_time')
+  if fark < 1:
+   st.warning('Biraz yavas')
+   st.stop()
+ st.session_state.last_time = simdi
+ st.session_state.messages.append({'role': 'user', 'content': kullanici_girdisi})
+ add_message_db(st.session_state.current_chat_id, 'user', kullanici_girdisi)
+ with st.chat_message('user'):
+  st.markdown(kullanici_girdisi)
+ with st.chat_message('assistant'):
+  api_mesajlari = [{'role': 'system', 'content': sistem_talimati}]
+  api_mesajlari.extend(st.session_state.messages)
+  try:
+   stream = client.chat.completions.create(model=selected_model, messages=api_mesajlari, stream=True, temperature=0.7)
+   yanit = st.write_stream((p.choices[0].delta.content for p in stream if p.choices[0].delta.content))
+   st.session_state.messages.append({'role': 'assistant', 'content': yanit})
+   add_message_db(st.session_state.current_chat_id, 'assistant', yanit)
+  except Exception as e:
+   st.error(f'Hata: {str(e)}')
