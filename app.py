@@ -6,43 +6,24 @@ from openai import OpenAI
 
 st.set_page_config(
     page_title="VorpH AI",
-    page_icon="VorpH",
+    page_icon="◼️",
     layout="centered",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
+# --- SADE TEMİZ KOYU TEMA ---
 st.markdown("""
 <style>
     .stApp { background: #000000 !important; color: #ececec !important; }
-    header[data-testid="stHeader"] { background: #000000 !important; }
-    [data-testid="stToolbar"] { display: none !important; }
     section[data-testid="stSidebar"] { background: #0a0a0a !important; border-right: 1px solid #1a1a1a !important; }
-    .topbar {
-        position: fixed; top: 0; left: 0; right: 0; z-index: 999;
-        background: #000000; height: 60px;
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 0 12px; border-bottom: 1px solid #111;
-    }
-    .topbar-title { font-size: 19px; font-weight: 600; color: white; flex: 1; margin-left: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .topbar-btn {
-        width: 40px; height: 40px; border-radius: 50%; background: #171717;
-        display: flex; align-items: center; justify-content: center; font-size: 18px; color: white;
-    }
-    .topbar-pill { background: #171717; border-radius: 999px; padding: 8px 10px; display: flex; gap: 10px; align-items: center; }
-    .block-container { padding-top: 75px !important; padding-bottom: 130px !important; max-width: 760px !important; }
-    [data-testid="stChatMessage"] { background: transparent !important; border: none !important; padding: 12px 0 !important; }
-    [data-testid="stChatMessageContent"] { font-size: 17px !important; line-height: 1.6 !important; color: #ececec !important; }
+    [data-testid="stChatMessage"] { background: transparent !important; border: none !important; padding: 10px 0 !important; }
+    [data-testid="stChatMessageContent"] { font-size: 16px !important; line-height: 1.6 !important; }
     .stChatInputContainer {
         background: #151515 !important; border: 1px solid #222 !important;
         border-radius: 24px !important; padding: 6px 8px !important;
-        box-shadow: 0 -10px 30px rgba(0,0,0,0.8) !important;
     }
-    .stChatInputContainer textarea { background: transparent !important; color: white !important; font-size: 16px !important; }
-    .stChatInputContainer textarea::placeholder { color: #888 !important; }
-    button[kind="secondary"] { background: #1a1a1a !important; border: 1px solid #222 !important; color: white !important; border-radius: 999px !important; }
-    @media (max-width: 768px) {
-        .block-container { padding-left: 14px !important; padding-right: 14px !important; }
-    }
+    .stChatInputContainer textarea { color: white !important; }
+    button { border-radius: 12px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -109,31 +90,44 @@ if "current_chat_id" not in st.session_state:
     st.session_state.current_chat_id = None
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "hizli_modu" not in st.session_state:
-    st.session_state.hizli_modu = True
 
-# --- GEMINI API KEY ---
+# --- API KEY : GEMINI ÖNCELİKLİ ---
 gemini_key = st.secrets.get("GEMINI_API_KEY", "")
-if not gemini_key:
-    st.error("Secrets içinde GEMINI_API_KEY bulunamadı. Streamlit > Manage app > Settings > Secrets kısmına GEMINI_API_KEY ekle.")
+openrouter_key = st.secrets.get("OPENROUTER_API_KEY", "")
+
+if gemini_key:
+    client = OpenAI(
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        api_key=gemini_key
+    )
+    kullanilan_api = "gemini"
+elif openrouter_key:
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=openrouter_key
+    )
+    kullanilan_api = "openrouter"
+else:
+    st.error("Secrets içinde GEMINI_API_KEY yok. Manage app > Settings > Secrets kısmına ekle.")
     st.stop()
 
-client = OpenAI(
-    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-    api_key=gemini_key
-)
-
-# --- VARSAYILAN DEĞERLER - else kullanmadan düzeltildi ---
+# --- YAN ÇUBUK GERİ GELDİ ---
 personality = "Genel Asistan"
 selected_model = "gemini-2.0-flash"
-chats = get_chats(st.session_state.user_name)
 
-# --- SIDEBAR ---
 with st.sidebar:
-    st.markdown("### VorpH AI")
+    st.title("VorpH AI")
+    st.caption("Profesyonel Asistan")
+
     isim = st.text_input("İsminiz", value=st.session_state.user_name)
-    st.session_state.user_name = isim
+    if isim != st.session_state.user_name:
+        st.session_state.user_name = isim
+        st.session_state.current_chat_id = None
+        st.session_state.messages = []
+        st.rerun()
+
     st.markdown("---")
+
     modlar = [
         "Genel Asistan",
         "Yazılım Uzmanı",
@@ -141,24 +135,40 @@ with st.sidebar:
         "Resmî"
     ]
     personality = st.selectbox("Asistan Modu", modlar)
-    modeller = [
-        "Hızlı - Gemini 2.0 Flash",
-        "Akıllı - Gemini 2.5 Flash",
-        "Güçlü - Gemini 1.5 Pro"
-    ]
+
+    if kullanilan_api == "gemini":
+        modeller = [
+            "Hızlı - Gemini 2.0 Flash",
+            "Akıllı - Gemini 2.5 Flash",
+            "Güçlü - Gemini 1.5 Flash"
+        ]
+        model_map = {
+            "Hızlı - Gemini 2.0 Flash": "gemini-2.0-flash",
+            "Akıllı - Gemini 2.5 Flash": "gemini-2.5-flash",
+            "Güçlü - Gemini 1.5 Flash": "gemini-1.5-flash"
+        }
+    else:
+        modeller = [
+            "Hızlı - Gemini Flash",
+            "Dengeli - Auto"
+        ]
+        model_map = {
+            "Hızlı - Gemini Flash": "google/gemini-2.0-flash-001",
+            "Dengeli - Auto": "openrouter/auto"
+        }
+
     model_opt = st.selectbox("Model", modeller)
-    model_map = {
-        "Hızlı - Gemini 2.0 Flash": "gemini-2.0-flash",
-        "Akıllı - Gemini 2.5 Flash": "gemini-2.5-flash",
-        "Güçlü - Gemini 1.5 Pro": "gemini-1.5-pro"
-    }
     selected_model = model_map[model_opt]
+
     st.markdown("---")
+
     if st.button("➕ Yeni Sohbet", use_container_width=True, type="primary"):
         nid = create_chat(st.session_state.user_name)
         st.session_state.current_chat_id = nid
         st.session_state.messages = []
         st.rerun()
+
+    st.markdown("---")
     st.subheader("Geçmiş Sohbetler")
     chats = get_chats(st.session_state.user_name)
     for cid, title in chats:
@@ -171,8 +181,9 @@ with st.sidebar:
         with c2:
             if st.button("🗑️", key=f"del_{cid}"):
                 delete_chat_db(cid)
-                st.session_state.current_chat_id = None
-                st.session_state.messages = []
+                if st.session_state.current_chat_id == cid:
+                    st.session_state.current_chat_id = None
+                    st.session_state.messages = []
                 st.rerun()
 
 if not st.session_state.current_chat_id:
@@ -183,49 +194,12 @@ if not st.session_state.current_chat_id:
         nid = create_chat(st.session_state.user_name, "Proje Geliştirmeleri")
         st.session_state.current_chat_id = nid
 
-aktif_baslik = "Yeni Sohbet"
-for cid, title in chats:
-    if cid == st.session_state.current_chat_id:
-        aktif_baslik = title
+st.title("VorpH AI")
+st.caption(f"Merhaba {st.session_state.user_name} - Model: {model_opt}")
 
-# --- ÜST BAR ---
-st.markdown(
-    f"""
-    <div class="topbar">
-        <div class="topbar-btn">☰</div>
-        <div class="topbar-title">{aktif_baslik}</div>
-        <div class="topbar-pill">
-            <span>✏️</span>
-            <span>•••</span>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-# --- MESAJLAR ---
-if not st.session_state.messages:
-    st.markdown("""
-    <div style="text-align:center; margin-top:120px; color:#777;">
-        <div style="font-size:28px; color:white; font-weight:600;">VorpH'a ne soracaksın?</div>
-        <div style="margin-top:10px;">Proje geliştirmeleri için buradayım</div>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    for idx, m in enumerate(st.session_state.messages):
-        with st.chat_message(m["role"]):
-            st.markdown(m["content"])
-        if m["role"] == "assistant":
-            c1, c2, c3, c4 = st.columns([1, 1, 1, 10])
-            with c1:
-                if st.button("👍", key=f"like_{idx}"):
-                    st.toast("Teşekkürler!")
-            with c2:
-                if st.button("👎", key=f"dis_{idx}"):
-                    st.toast("Not edildi")
-            with c3:
-                if st.button("📋", key=f"copy_{idx}"):
-                    st.toast("Kopyalandı")
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
 
 prompts = {
     "Genel Asistan": "Sen VorpH adında samimi bir asistansın.",
@@ -235,18 +209,6 @@ prompts = {
 }
 ad = st.session_state.user_name
 sistem = prompts.get(personality, prompts["Genel Asistan"]) + f" Kullanıcının adı {ad}. Türkçe cevap ver."
-
-# --- ALT BAR ---
-col_arti, col_aninda, col_ses = st.columns([1, 2, 1])
-with col_arti:
-    if st.button("＋", key="plus_btn"):
-        st.toast("Dosya yükleme yakında")
-with col_aninda:
-    hizli = st.toggle("Anında", value=st.session_state.hizli_modu)
-    st.session_state.hizli_modu = hizli
-with col_ses:
-    if st.button("🎙️", key="voice_btn"):
-        st.toast("Sesli giriş yakında - şimdilik yazın")
 
 kullanici_girdisi = st.chat_input("Yanıtla...")
 
